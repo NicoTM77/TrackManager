@@ -13,6 +13,7 @@ services:
       - LOG_LEVEL=trace
       - PORT=3000
       - DATABASE_URL=/app/data/local.db
+      - CONCURRENT_SCAN_THREADS=4
     volumes:
       # Persistent storage directory for SQLite database files
       - ./data:/app/data

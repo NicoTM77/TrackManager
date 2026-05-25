@@ -56,7 +56,7 @@ To execute the automated unit and integration tests:
 ```bash
 npm run test
 ```
-*Runs all 16 Vitest test suites (rules engines, directory crawlers, language normalizers, and indexing transactions).*
+*Runs all 19 Vitest test suites (rules engines, directory crawlers, language normalizers, and indexing transactions).*
 
 ---
 

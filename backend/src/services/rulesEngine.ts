@@ -86,12 +86,28 @@ export function evaluateCondition(condition: RuleCondition, item: any): Evaluati
           errorMessage: passed ? undefined : `Field "${field}" is "${itemVal}", expected "${val}".`
         };
       }
+      case 'NOT_EQUALS': {
+        const strVal = String(val).toLowerCase();
+        const passed = strItemVal !== strVal;
+        return {
+          passed,
+          errorMessage: passed ? undefined : `Field "${field}" is "${itemVal}", which must not be "${val}".`
+        };
+      }
       case 'CONTAINS': {
         const strVal = String(val).toLowerCase();
         const passed = strItemVal.includes(strVal);
         return {
           passed,
           errorMessage: passed ? undefined : `Field "${field}" is "${itemVal}", which does not contain "${val}".`
+        };
+      }
+      case 'NOT_CONTAINS': {
+        const strVal = String(val).toLowerCase();
+        const passed = !strItemVal.includes(strVal);
+        return {
+          passed,
+          errorMessage: passed ? undefined : `Field "${field}" is "${itemVal}", which must not contain "${val}".`
         };
       }
       case 'IN': {
@@ -101,6 +117,15 @@ export function evaluateCondition(condition: RuleCondition, item: any): Evaluati
         return {
           passed,
           errorMessage: passed ? undefined : `Field "${field}" is "${itemVal}", which is not in list: [${arr.join(', ')}].`
+        };
+      }
+      case 'NOT_IN': {
+        const arr = Array.isArray(val) ? val : [val];
+        const normalizedArr = arr.map(v => String(v).toLowerCase());
+        const passed = !normalizedArr.includes(strItemVal);
+        return {
+          passed,
+          errorMessage: passed ? undefined : `Field "${field}" is "${itemVal}", which must not be in list: [${arr.join(', ')}].`
         };
       }
       case 'GTE': {

@@ -27,6 +27,7 @@ services:
       - NODE_ENV=production
       - LOG_LEVEL=info
       - DATABASE_URL=/app/data/local.db
+      - CONCURRENT_SCAN_THREADS=4
     volumes:
       # Persistent SQLite Storage directory
       - ./data:/app/data
@@ -86,5 +87,5 @@ TrackManager utilizes **SQLite's Write-Ahead Logging (WAL)** mode for superior c
 TrackManager is built from the ground up to consume minimal host resources.
 
 *   **Fast-Path Sync Skipping ($O(N)$):** During scans, the synchronization crawler performs a simple stat call on file paths to match sizes and modified times (`mtimeMs`). If they match the SQLite record, the scanner skips executing `mediainfo` entirely. An incremental scan of 10,000 files completes in **under 2 seconds** with virtually 0% CPU consumption.
-*   **Sequential Extraction:** Newly added or modified files are parsed sequentially. The parser invokes `mediainfo` one file at a time, keeping RAM consumption under **50MB** and avoiding CPU thread starvation.
+*   **Concurrent Extraction:** Newly added or modified files are parsed concurrently in a configurable worker promise pool (controlled via `CONCURRENT_SCAN_THREADS`, defaulting to `4` threads). Spawning parallel MediaInfo probes dramatically speeds up crawl times on multi-core systems, while database transaction writes are safely serialized in an sequential write queue to fully prevent SQLite database locks (`SQLITE_BUSY`).
 *   **Database Indexes:** Explicit unique constraints are configured on library paths and media item paths. Paginated audits search filters leverage SQLite indices for instant queries.

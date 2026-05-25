@@ -326,6 +326,23 @@ export const RulesBuilder: React.FC<RulesBuilderProps> = ({ apiBase }) => {
       }
     }
 
+    // Clean up empty params (like blank language input) to bypass language constraints safely
+    const cleanedConditions = formConditions.map(cond => {
+      if ((cond.field === 'audio' || cond.field === 'subtitles') && cond.params) {
+        const nextParams = { ...cond.params };
+        if (typeof nextParams.language === 'string') {
+          const trimmed = nextParams.language.trim();
+          if (trimmed === '') {
+            delete nextParams.language;
+          } else {
+            nextParams.language = trimmed;
+          }
+        }
+        return { ...cond, params: nextParams };
+      }
+      return cond;
+    });
+
     const isEditing = editingRuleId !== null;
     const url = isEditing ? `${apiBase}/api/rules/${editingRuleId}` : `${apiBase}/api/rules`;
     const method = isEditing ? 'PUT' : 'POST';
@@ -341,7 +358,7 @@ export const RulesBuilder: React.FC<RulesBuilderProps> = ({ apiBase }) => {
           targetType,
           conditions: {
             logicalOperator: logicalOp,
-            conditions: formConditions
+            conditions: cleanedConditions
           }
         })
       });
@@ -1044,15 +1061,30 @@ export const RulesBuilder: React.FC<RulesBuilderProps> = ({ apiBase }) => {
                                 onChange={(e) => handleConditionChange(idx, 'operator', e.target.value)}
                               >
                                 <option value="EQUALS">EQUALS</option>
-                                <option value="CONTAINS">CONTAINS</option>
-                                <option value="GTE">GTE (&gt;=)</option>
-                                <option value="LTE">LTE (&lt;=)</option>
+                                <option value="NOT_EQUALS">NOT EQUALS</option>
+                                {cond.field === 'videoColorDepth' ? (
+                                  <>
+                                    <option value="GTE">GTE (&gt;=)</option>
+                                    <option value="LTE">LTE (&lt;=)</option>
+                                  </>
+                                ) : (
+                                  <>
+                                    <option value="CONTAINS">CONTAINS</option>
+                                    <option value="NOT_CONTAINS">NOT CONTAINS</option>
+                                  </>
+                                )}
                               </select>
                               <input 
                                 type="text" 
                                 className="form-input" 
                                 style={{ flex: 2 }}
-                                placeholder="e.g. HEVC"
+                                placeholder={
+                                  cond.field === 'container' ? 'e.g. matroska' :
+                                  cond.field === 'videoCodec' ? 'e.g. HEVC' :
+                                  cond.field === 'videoResolution' ? 'e.g. 1920x1080' :
+                                  cond.field === 'videoColorDepth' ? 'e.g. 10' :
+                                  cond.field === 'videoHdrFormat' ? 'e.g. Dolby Vision' : 'e.g. value'
+                                }
                                 value={cond.value || ''}
                                 onChange={(e) => handleConditionChange(idx, 'value', e.target.value)}
                               />

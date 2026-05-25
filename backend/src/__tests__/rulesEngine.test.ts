@@ -71,6 +71,32 @@ describe('Rules Engine - Simple Field Audits', () => {
     // videoColorDepth LTE 8 -> false
     expect(evaluateCondition({ field: 'videoColorDepth', operator: 'LTE', value: 8 }, mockItem).passed).toBe(false);
   });
+
+  it('should evaluate NOT_EQUALS, NOT_CONTAINS, and NOT_IN operators correctly', () => {
+    // videoCodec NOT_EQUALS HEVC -> false
+    const res1 = evaluateCondition({ field: 'videoCodec', operator: 'NOT_EQUALS', value: 'HEVC' }, mockItem);
+    expect(res1.passed).toBe(false);
+    expect(res1.errorMessage).toBe('Field "videoCodec" is "HEVC", which must not be "HEVC".');
+
+    // videoCodec NOT_EQUALS AVC -> true
+    expect(evaluateCondition({ field: 'videoCodec', operator: 'NOT_EQUALS', value: 'AVC' }, mockItem).passed).toBe(true);
+
+    // videoHdrFormat NOT_CONTAINS Dolby -> false
+    const res2 = evaluateCondition({ field: 'videoHdrFormat', operator: 'NOT_CONTAINS', value: 'Dolby' }, mockItem);
+    expect(res2.passed).toBe(false);
+    expect(res2.errorMessage).toBe('Field "videoHdrFormat" is "Dolby Vision", which must not contain "Dolby".');
+
+    // videoHdrFormat NOT_CONTAINS HDR10 -> true
+    expect(evaluateCondition({ field: 'videoHdrFormat', operator: 'NOT_CONTAINS', value: 'HDR10' }, mockItem).passed).toBe(true);
+
+    // container NOT_IN [mkv, mp4] -> false
+    const res3 = evaluateCondition({ field: 'container', operator: 'NOT_IN', value: ['mkv', 'mp4'] }, mockItem);
+    expect(res3.passed).toBe(false);
+    expect(res3.errorMessage).toBe('Field "container" is "mkv", which must not be in list: [mkv, mp4].');
+
+    // container NOT_IN [mp4, avi] -> true
+    expect(evaluateCondition({ field: 'container', operator: 'NOT_IN', value: ['mp4', 'avi'] }, mockItem).passed).toBe(true);
+  });
 });
 
 describe('Rules Engine - Audio Track Audits', () => {
