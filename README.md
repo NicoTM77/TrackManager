@@ -1,5 +1,9 @@
 # TrackManager - Self-Hosted Media Library Auditor
 
+<p align="center">
+  <img src="frontend/src/assets/logo.png" alt="TrackManager Logo" width="160" />
+</p>
+
 TrackManager is a beautiful, premium, self-hosted media library auditing web application. It recursively scans local media folders (organized Movies and TV Shows), parses high-fidelity tracks metadata utilizing `mediainfo`, indexes everything in a local SQLite database, and executes a custom Abstract Syntax Tree (AST) compliance rules engine. 
 
 Features include a fully responsive, dark-mode first **glassmorphic React dashboard** where users can inspect compliance scores, filter library qualities, visually trace AST clause cards, sandbox-simulate audits, and monitor deleted/missing historical files (ghost records).

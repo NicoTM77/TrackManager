@@ -235,7 +235,7 @@ export const ExplorePanel: React.FC<ExplorePanelProps> = ({ apiBase }) => {
     try {
       const [libRes, mediaRes, seriesRes] = await Promise.all([
         fetch(`${apiBase}/api/libraries`),
-        fetch(`${apiBase}/api/media?limit=1000&status=active`),
+        fetch(`${apiBase}/api/media?limit=-1&status=active`),
         fetch(`${apiBase}/api/series/metadata`)
       ]);
       if (libRes.ok && mediaRes.ok && seriesRes.ok) {

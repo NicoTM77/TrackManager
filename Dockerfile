@@ -45,6 +45,7 @@ USER node
 EXPOSE 3000
 ENV NODE_ENV=production
 ENV PORT=3000
+ENV DATABASE_URL=/app/data/local.db
 
 # Start server
 CMD ["node", "backend/dist/index.js"]
