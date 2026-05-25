@@ -5,7 +5,7 @@ interface Rule {
   name: string;
   description: string | null;
   isActive: boolean;
-  targetType: 'movie' | 'tv' | 'all';
+  targetType: string;
   conditions: {
     logicalOperator: 'AND' | 'OR';
     conditions: any[];
@@ -31,7 +31,7 @@ export const RulesBuilder: React.FC<RulesBuilderProps> = ({ apiBase }) => {
   const [editingRuleId, setEditingRuleId] = useState<number | null>(null);
   const [ruleName, setRuleName] = useState('');
   const [ruleDesc, setRuleDesc] = useState('');
-  const [targetType, setTargetType] = useState<'movie' | 'tv' | 'all'>('all');
+  const [targetType, setTargetType] = useState<string>('movie,tv,anime');
   const [logicalOp, setLogicalOp] = useState<'AND' | 'OR'>('AND');
   const [formConditions, setFormConditions] = useState<any[]>([
     { field: 'videoCodec', operator: 'EQUALS', value: 'HEVC' }
@@ -214,11 +214,33 @@ export const RulesBuilder: React.FC<RulesBuilderProps> = ({ apiBase }) => {
     }
   };
 
+  const handleCheckboxChange = (category: 'movie' | 'tv' | 'anime', checked: boolean) => {
+    let active = targetType.split(',').map(s => s.trim().toLowerCase()).filter(s => s && s !== 'all');
+    if (checked) {
+      if (!active.includes(category)) {
+        active.push(category);
+      }
+    } else {
+      active = active.filter(item => item !== category);
+    }
+    
+    if (active.length === 3) {
+      setTargetType('movie,tv,anime');
+    } else {
+      setTargetType(active.join(','));
+    }
+  };
+
+  const handleSelectAll = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setTargetType('movie,tv,anime');
+  };
+
   const handleStartCreate = () => {
     setEditingRuleId(null);
     setRuleName('');
     setRuleDesc('');
-    setTargetType('all');
+    setTargetType('movie,tv,anime');
     setLogicalOp('AND');
     const initialConditions = [{ field: 'videoCodec', operator: 'EQUALS', value: 'HEVC' }];
     setFormConditions(initialConditions);
@@ -232,7 +254,7 @@ export const RulesBuilder: React.FC<RulesBuilderProps> = ({ apiBase }) => {
     setEditingRuleId(rule.id);
     setRuleName(rule.name);
     setRuleDesc(rule.description || '');
-    setTargetType(rule.targetType);
+    setTargetType(rule.targetType === 'all' ? 'movie,tv,anime' : rule.targetType);
     
     const isStandardObj = rule.conditions && typeof rule.conditions === 'object' && !Array.isArray(rule.conditions);
     const op = isStandardObj ? rule.conditions.logicalOperator || 'AND' : 'AND';
@@ -252,7 +274,7 @@ export const RulesBuilder: React.FC<RulesBuilderProps> = ({ apiBase }) => {
     setEditingRuleId(null);
     setRuleName('');
     setRuleDesc('');
-    setTargetType('all');
+    setTargetType('movie,tv,anime');
     setLogicalOp('AND');
     setFormConditions([{ field: 'videoCodec', operator: 'EQUALS', value: 'HEVC' }]);
     setEditorMode('visual');
@@ -272,6 +294,10 @@ export const RulesBuilder: React.FC<RulesBuilderProps> = ({ apiBase }) => {
 
     if (!ruleName) {
       setFormError('Rule name is required.');
+      return;
+    }
+    if (!targetType || targetType.trim() === '') {
+      setFormError('Please check at least one target option (Movies, TV Shows, or Anime).');
       return;
     }
     if (formConditions.length === 0) {
@@ -358,7 +384,7 @@ export const RulesBuilder: React.FC<RulesBuilderProps> = ({ apiBase }) => {
       setLogicalOp(simOp);
       setRuleName('Simulated Compliance Rule');
       setRuleDesc('Saved from sandbox compliance simulation');
-      setTargetType('all');
+      setTargetType('movie,tv,anime');
       setEditingRuleId(null);
       setEditorMode('visual');
       setCodeString(simAstString);
@@ -900,18 +926,47 @@ export const RulesBuilder: React.FC<RulesBuilderProps> = ({ apiBase }) => {
                   />
                 </div>
                 <div>
-                  <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px', fontWeight: 600 }}>
-                    TARGET TYPE
-                  </label>
-                  <select 
-                    className="form-select"
-                    value={targetType}
-                    onChange={(e) => setTargetType(e.target.value as 'movie' | 'tv' | 'all')}
-                  >
-                    <option value="all">Apply to All Files</option>
-                    <option value="movie">Movies Only</option>
-                    <option value="tv">TV Shows Only</option>
-                  </select>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                    <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600, margin: 0 }}>
+                      TARGET TYPE
+                    </label>
+                    <a 
+                      href="#" 
+                      onClick={handleSelectAll} 
+                      style={{ fontSize: '0.75rem', color: 'var(--accent-cyan)', textDecoration: 'none', fontWeight: 600 }}
+                    >
+                      Select All
+                    </a>
+                  </div>
+                  <div style={{ display: 'flex', gap: '15px', alignItems: 'center', height: '38px', background: 'rgba(0,0,0,0.2)', border: 'var(--panel-border)', borderRadius: '8px', padding: '0 12px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', cursor: 'pointer', margin: 0 }}>
+                      <input 
+                        type="checkbox" 
+                        checked={targetType.split(',').map(s => s.trim().toLowerCase()).includes('movie')}
+                        onChange={(e) => handleCheckboxChange('movie', e.target.checked)}
+                        style={{ accentColor: 'var(--accent-cyan)' }}
+                      />
+                      Movies
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', cursor: 'pointer', margin: 0 }}>
+                      <input 
+                        type="checkbox" 
+                        checked={targetType.split(',').map(s => s.trim().toLowerCase()).includes('tv')}
+                        onChange={(e) => handleCheckboxChange('tv', e.target.checked)}
+                        style={{ accentColor: 'var(--accent-cyan)' }}
+                      />
+                      TV Shows
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', cursor: 'pointer', margin: 0 }}>
+                      <input 
+                        type="checkbox" 
+                        checked={targetType.split(',').map(s => s.trim().toLowerCase()).includes('anime')}
+                        onChange={(e) => handleCheckboxChange('anime', e.target.checked)}
+                        style={{ accentColor: 'var(--accent-cyan)' }}
+                      />
+                      Anime
+                    </label>
+                  </div>
                 </div>
               </div>
 

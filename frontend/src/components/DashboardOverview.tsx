@@ -7,6 +7,8 @@ interface Library {
   type: 'movie' | 'tv';
   status: 'idle' | 'scanning';
   lastScannedAt: string | null;
+  refreshInterval: number | null;
+  isAutoRefreshEnabled: boolean;
 }
 
 interface Stats {
@@ -30,6 +32,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ apiBase, o
   const [libraries, setLibraries] = useState<Library[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [saveGlow, setSaveGlow] = useState<Record<number, boolean>>({});
   
   // Library addition modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -74,6 +77,67 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ apiBase, o
       }
     } catch (err) {
       console.error('Failed to trigger scan:', err);
+      fetchData();
+    }
+  };
+
+  const handleToggleAutoRefresh = async (libraryId: number, isEnabled: boolean) => {
+    // Optimistically update local UI state
+    setLibraries(prev => prev.map(lib => lib.id === libraryId ? { ...lib, isAutoRefreshEnabled: isEnabled } : lib));
+    
+    try {
+      const lib = libraries.find(l => l.id === libraryId);
+      if (!lib) return;
+      
+      const res = await fetch(`${apiBase}/api/libraries/${libraryId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          isAutoRefreshEnabled: isEnabled,
+          refreshInterval: lib.refreshInterval
+        })
+      });
+      if (res.ok) {
+        setSaveGlow(prev => ({ ...prev, [libraryId]: true }));
+        setTimeout(() => {
+          setSaveGlow(prev => ({ ...prev, [libraryId]: false }));
+        }, 1500);
+      } else {
+        fetchData(); // Rollback on error
+      }
+    } catch (err) {
+      console.error('Failed to toggle auto refresh:', err);
+      fetchData();
+    }
+  };
+
+  const handleIntervalChange = (libraryId: number, val: number) => {
+    setLibraries(prev => prev.map(lib => lib.id === libraryId ? { ...lib, refreshInterval: isNaN(val) ? 0 : val } : lib));
+  };
+
+  const handleIntervalSave = async (libraryId: number, val: number) => {
+    const cleanVal = isNaN(val) || val <= 0 ? 3600 : val;
+    try {
+      const lib = libraries.find(l => l.id === libraryId);
+      if (!lib) return;
+      
+      const res = await fetch(`${apiBase}/api/libraries/${libraryId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          isAutoRefreshEnabled: lib.isAutoRefreshEnabled,
+          refreshInterval: cleanVal
+        })
+      });
+      if (res.ok) {
+        setSaveGlow(prev => ({ ...prev, [libraryId]: true }));
+        setTimeout(() => {
+          setSaveGlow(prev => ({ ...prev, [libraryId]: false }));
+        }, 1500);
+        fetchData(); // Sync with database state
+      }
+    } catch (err) {
+      console.error('Failed to save refresh interval:', err);
       fetchData();
     }
   };
@@ -258,7 +322,15 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ apiBase, o
       ) : (
         <div className="libraries-grid">
           {libraries.map((lib) => (
-            <div className="glass-panel library-card" key={lib.id}>
+            <div 
+              className={`glass-panel library-card ${saveGlow[lib.id] ? 'save-glow-active' : ''}`} 
+              style={{
+                boxShadow: saveGlow[lib.id] ? '0 0 20px rgba(16, 185, 129, 0.4)' : undefined,
+                borderColor: saveGlow[lib.id] ? 'rgba(16, 185, 129, 0.5)' : undefined,
+                transition: 'all 0.3s ease'
+              }}
+              key={lib.id}
+            >
               <div className="library-card-header">
                 <span className="library-card-type-badge">{lib.type}</span>
                 <button 
@@ -270,6 +342,82 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ apiBase, o
               </div>
               <h3 className="library-card-title">{lib.name}</h3>
               <p className="library-card-path">{lib.path}</p>
+              
+              {/* Sleek auto-refresh configuration section */}
+              <div className="library-card-refresh-settings" style={{
+                marginTop: '15px',
+                paddingTop: '15px',
+                borderTop: '1px solid rgba(255,255,255,0.05)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px',
+                marginBottom: '15px'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                    AUTO REFRESH
+                    {saveGlow[lib.id] && (
+                      <span style={{ color: 'var(--status-passed-text)', fontSize: '0.7rem', fontWeight: 700, animation: 'fadeIn 0.2s ease-out' }}>
+                        ✓ SAVED
+                      </span>
+                    )}
+                  </span>
+                  <label className="switch" style={{ display: 'inline-flex', alignItems: 'center', cursor: 'pointer', margin: 0 }}>
+                    <input 
+                      type="checkbox" 
+                      checked={lib.isAutoRefreshEnabled} 
+                      style={{ display: 'none' }}
+                      onChange={(e) => handleToggleAutoRefresh(lib.id, e.target.checked)} 
+                    />
+                    <span className={`switch-slider ${lib.isAutoRefreshEnabled ? 'active' : ''}`} style={{
+                      width: '30px',
+                      height: '16px',
+                      background: lib.isAutoRefreshEnabled ? 'var(--status-passed-bg)' : 'rgba(255, 255, 255, 0.08)',
+                      border: lib.isAutoRefreshEnabled ? 'var(--status-passed-border)' : 'var(--panel-border)',
+                      borderRadius: '20px',
+                      position: 'relative',
+                      display: 'inline-block',
+                      transition: 'all 0.2s ease',
+                      boxShadow: lib.isAutoRefreshEnabled ? 'var(--status-passed-glow)' : 'none'
+                    }}>
+                      <span style={{
+                        width: '10px',
+                        height: '10px',
+                        background: lib.isAutoRefreshEnabled ? 'var(--status-passed-text)' : 'var(--text-muted)',
+                        borderRadius: '50%',
+                        position: 'absolute',
+                        top: '2px',
+                        left: lib.isAutoRefreshEnabled ? '16px' : '2px',
+                        transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)'
+                      }} />
+                    </span>
+                  </label>
+                </div>
+                
+                {lib.isAutoRefreshEnabled && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', animation: 'fadeIn 0.2s ease-out' }}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>INTERVAL (SEC)</span>
+                    <input 
+                      type="number" 
+                      className="form-input" 
+                      style={{
+                        width: '90px',
+                        padding: '3px 8px',
+                        fontSize: '0.8rem',
+                        textAlign: 'right',
+                        background: 'rgba(0,0,0,0.2)',
+                        border: 'var(--panel-border)',
+                        borderRadius: '4px',
+                        color: 'var(--text-primary)'
+                      }}
+                      min={10}
+                      value={lib.refreshInterval ?? 3600}
+                      onChange={(e) => handleIntervalChange(lib.id, parseInt(e.target.value, 10))}
+                      onBlur={(e) => handleIntervalSave(lib.id, parseInt(e.target.value, 10))}
+                    />
+                  </div>
+                )}
+              </div>
               
               <div className="library-card-footer">
                 <div>

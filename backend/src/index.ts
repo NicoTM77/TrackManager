@@ -7,7 +7,7 @@ import { eq, and, or, like, inArray, sql } from 'drizzle-orm';
 
 import logger from './utils/logger';
 import { db, initializeDatabase, reconnectDatabase } from './db/connection';
-import { libraries, mediaItems, audioTracks, subtitleTracks, rules, auditResults } from './db/schema';
+import { libraries, mediaItems, audioTracks, subtitleTracks, rules, auditResults, seriesMetadata } from './db/schema';
 import { scanLibrary } from './services/scanService';
 import { runLibraryAudits } from './services/auditService';
 import { evaluateRule } from './services/rulesEngine';
@@ -25,11 +25,54 @@ const scanStatusMap = new Map<number, 'idle' | 'scanning'>();
 // libraryId -> ISO Date string of last scan completion
 const lastScanCompletedMap = new Map<number, string>();
 
+// Global interval registry for scheduled background refreshes
+const libraryIntervalMap = new Map<number, NodeJS.Timeout>();
+
+/**
+ * Manages background sync intervals for a specific library.
+ * Dynamic and idempotent; updates scheduling in real-time.
+ */
+function refreshLibraryTimer(libraryId: number, intervalSeconds: number | null, isEnabled: boolean) {
+  // Clear any existing active schedule
+  const existing = libraryIntervalMap.get(libraryId);
+  if (existing) {
+    clearInterval(existing);
+    libraryIntervalMap.delete(libraryId);
+  }
+
+  // Schedule a new interval if enabled
+  if (isEnabled && intervalSeconds && intervalSeconds > 0) {
+    logger.info(`Scheduling background auto-refresh for library ID ${libraryId} every ${intervalSeconds} seconds.`);
+    const intervalMs = intervalSeconds * 1000;
+    const timer = setInterval(async () => {
+      logger.info(`Executing scheduled auto-refresh scan for library ID ${libraryId}`);
+      try {
+        scanStatusMap.set(libraryId, 'scanning');
+        const summary = await scanLibrary(libraryId);
+        scanStatusMap.set(libraryId, 'idle');
+        lastScanCompletedMap.set(libraryId, new Date().toISOString());
+        logger.info(`Scheduled auto-refresh scan completed successfully for library "${summary.libraryName}"`);
+      } catch (err: any) {
+        scanStatusMap.set(libraryId, 'idle');
+        logger.error(err, `Scheduled auto-refresh scan failed for library ID ${libraryId}`);
+      }
+    }, intervalMs);
+    libraryIntervalMap.set(libraryId, timer);
+  }
+}
+
 // Initialize and start database on server boot
 async function startServer() {
   try {
     // 1. Run migrations and connect SQLite
     await initializeDatabase();
+    
+    // 1.5. Query all libraries and initialize auto-refresh interval loops on boot
+    const allLibs = await db.select().from(libraries);
+    for (const lib of allLibs) {
+      scanStatusMap.set(lib.id, 'idle'); // Set default state
+      refreshLibraryTimer(lib.id, lib.refreshInterval, lib.isAutoRefreshEnabled);
+    }
     
     // 2. Start Express app listening
     app.listen(PORT, () => {
@@ -126,11 +169,135 @@ app.delete('/api/libraries/:id', async (req, res) => {
     scanStatusMap.delete(libraryId);
     lastScanCompletedMap.delete(libraryId);
 
+    // Clear background interval timer if registered
+    const existingTimer = libraryIntervalMap.get(libraryId);
+    if (existingTimer) {
+      clearInterval(existingTimer);
+      libraryIntervalMap.delete(libraryId);
+    }
+
     logger.info(`Deleted library "${lib.name}" [ID: ${libraryId}]`);
     res.json({ message: `Successfully deleted library: ${lib.name}` });
   } catch (error: any) {
     logger.error(error, `Failed to delete library ID ${libraryId}`);
     res.status(500).json({ error: 'Failed to delete library.' });
+  }
+});
+
+// PUT /api/libraries/:id - Update library configurations (idempotent, supports auto-refresh)
+app.put('/api/libraries/:id', async (req, res) => {
+  const libraryId = parseInt(req.params.id, 10);
+  if (isNaN(libraryId)) {
+    return res.status(400).json({ error: 'Invalid library ID.' });
+  }
+
+  const { name, path: libPath, type, refreshInterval, isAutoRefreshEnabled } = req.body;
+
+  try {
+    const [existingLib] = await db.select().from(libraries).where(eq(libraries.id, libraryId)).limit(1);
+    if (!existingLib) {
+      return res.status(404).json({ error: 'Library not found.' });
+    }
+
+    // Prepare update parameters
+    const updateParams: any = {
+      updatedAt: new Date(),
+    };
+    if (name !== undefined) updateParams.name = name;
+    if (libPath !== undefined) updateParams.path = libPath;
+    if (type !== undefined) updateParams.type = type;
+    if (refreshInterval !== undefined) updateParams.refreshInterval = refreshInterval;
+    if (isAutoRefreshEnabled !== undefined) updateParams.isAutoRefreshEnabled = isAutoRefreshEnabled;
+
+    // Validate path existence if updated
+    if (libPath && libPath !== existingLib.path && !fs.existsSync(libPath)) {
+      try {
+        fs.mkdirSync(libPath, { recursive: true });
+        logger.info(`Auto-created media library directory during update: ${libPath}`);
+      } catch (err: any) {
+        logger.warn(`Could not create directory at ${libPath}:`, err);
+      }
+    }
+
+    const [updatedLib] = await db
+      .update(libraries)
+      .set(updateParams)
+      .where(eq(libraries.id, libraryId))
+      .returning();
+
+    // Dynamically update background auto-refresh scheduling
+    const finalInterval = updatedLib.refreshInterval;
+    const finalEnabled = updatedLib.isAutoRefreshEnabled;
+    refreshLibraryTimer(libraryId, finalInterval, finalEnabled);
+
+    res.json(updatedLib);
+  } catch (error: any) {
+    logger.error(error, `Failed to update library ID ${libraryId}`);
+    if (error.code === 'SQLITE_CONSTRAINT_UNIQUE' || error.message?.includes('UNIQUE')) {
+      return res.status(400).json({ error: 'A library with this absolute path already exists.' });
+    }
+    res.status(500).json({ error: 'Failed to update library config.' });
+  }
+});
+
+// POST /api/series/flag - Idempotently flag a series as TV or Anime
+app.post('/api/series/flag', async (req, res) => {
+  const { libraryId, seriesPath, seriesName, type } = req.body;
+
+  if (!libraryId || !seriesPath || !seriesName || !type) {
+    return res.status(400).json({ error: 'Missing required parameters: libraryId, seriesPath, seriesName, type.' });
+  }
+
+  if (type !== 'tv' && type !== 'anime') {
+    return res.status(400).json({ error: 'Invalid series type. Must be either "tv" or "anime".' });
+  }
+
+  try {
+    // Check if metadata row already exists
+    const [existing] = await db
+      .select()
+      .from(seriesMetadata)
+      .where(eq(seriesMetadata.seriesPath, seriesPath))
+      .limit(1);
+
+    if (existing) {
+      const [updated] = await db
+        .update(seriesMetadata)
+        .set({
+          type,
+          updatedAt: new Date()
+        })
+        .where(eq(seriesMetadata.id, existing.id))
+        .returning();
+      res.json(updated);
+    } else {
+      const [inserted] = await db
+        .insert(seriesMetadata)
+        .values({
+          libraryId,
+          seriesPath,
+          seriesName,
+          type,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        })
+        .returning();
+      res.json(inserted);
+    }
+  } catch (error: any) {
+    logger.error(error, `Failed to flag series at path "${seriesPath}" as ${type}`);
+    res.status(500).json({ error: 'Failed to save series metadata state.' });
+  }
+});
+
+// GET /api/series/metadata - Retrieve series taxonomy classifications
+app.get('/api/series/metadata', async (req, res) => {
+  try {
+    const list = await db.select().from(seriesMetadata);
+    res.json(list);
+  } catch (error: any) {
+    logger.error(error, 'Failed to fetch series metadata list');
+    res.status(500).json({ error: 'Failed to fetch series classifications.' });
   }
 });
 

@@ -1,8 +1,9 @@
 import { eq, and, inArray, or } from 'drizzle-orm';
 import { db } from '../db/connection';
-import { mediaItems, audioTracks, subtitleTracks, rules, auditResults, libraries } from '../db/schema';
+import { mediaItems, audioTracks, subtitleTracks, rules, auditResults, libraries, seriesMetadata } from '../db/schema';
 import { evaluateRule } from './rulesEngine';
 import logger from '../utils/logger';
+import path from 'path';
 
 /**
  * Runs all active compliance rules against all active media items in a specific library.
@@ -25,18 +26,24 @@ export async function runLibraryAudits(libraryId: number): Promise<void> {
     return;
   }
 
-  // 2. Fetch all active rules that target this library type (or target 'all')
-  const activeRules = await db
+  // 2. Fetch all active rules
+  const allActiveRules = await db
     .select()
     .from(rules)
-    .where(
-      and(
-        eq(rules.isActive, true),
-        or(eq(rules.targetType, 'all'), eq(rules.targetType, library.type))
-      )
-    );
+    .where(eq(rules.isActive, true));
 
-  logger.debug(`Found ${activeRules.length} active rules applicable to library type "${library.type}".`);
+  // Bulk-fetch series metadata for TV type mapping
+  const allSeriesMetadata = await db
+    .select()
+    .from(seriesMetadata)
+    .where(eq(seriesMetadata.libraryId, libraryId));
+
+  const seriesTypeMap = new Map<string, 'tv' | 'anime'>();
+  for (const meta of allSeriesMetadata) {
+    seriesTypeMap.set(meta.seriesPath, meta.type as 'tv' | 'anime');
+  }
+
+  logger.debug(`Found ${allActiveRules.length} active rules in total.`);
 
   // 3. Fetch all active media items in this library
   const items = await db
@@ -96,7 +103,24 @@ export async function runLibraryAudits(libraryId: number): Promise<void> {
     // If a media item no longer matches any active rules, we should clean up obsolete audits.
     // However, to keep it simple and correct, we just upsert new compliance results.
     for (const item of itemsWithTracks) {
-      for (const rule of activeRules) {
+      // Dynamically resolve the media item's specific category
+      let category: 'movie' | 'tv' | 'anime' = 'movie';
+      if (library.type === 'tv') {
+        category = 'tv';
+        const relative = path.relative(library.path, item.filePath);
+        const parts = relative.split(path.sep);
+        if (parts.length > 1) {
+          const seriesPath = path.join(library.path, parts[0]);
+          category = seriesTypeMap.get(seriesPath) || 'tv';
+        }
+      }
+
+      for (const rule of allActiveRules) {
+        // Match rule target categories (stored as comma-separated string, e.g. "tv,anime")
+        const targets = rule.targetType.split(',').map((t) => t.trim().toLowerCase());
+        const isApplicable = targets.includes('all') || targets.includes(category);
+        if (!isApplicable) continue;
+
         const result = evaluateRule(rule.conditions, item);
 
         tx
@@ -149,15 +173,39 @@ export async function auditMediaItem(mediaItemId: number): Promise<void> {
 
   if (!library) return;
 
-  const activeRules = await db
+  const allActiveRules = await db
     .select()
     .from(rules)
-    .where(
-      and(
-        eq(rules.isActive, true),
-        or(eq(rules.targetType, 'all'), eq(rules.targetType, library.type))
-      )
-    );
+    .where(eq(rules.isActive, true));
+
+  // Dynamically resolve the media item's specific category
+  let category: 'movie' | 'tv' | 'anime' = 'movie';
+  if (library.type === 'tv') {
+    category = 'tv';
+    const relative = path.relative(library.path, item.filePath);
+    const parts = relative.split(path.sep);
+    if (parts.length > 1) {
+      const seriesPath = path.join(library.path, parts[0]);
+      const [meta] = await db
+        .select()
+        .from(seriesMetadata)
+        .where(
+          and(
+            eq(seriesMetadata.libraryId, library.id),
+            eq(seriesMetadata.seriesPath, seriesPath)
+          )
+        )
+        .limit(1);
+      if (meta) {
+        category = meta.type as 'tv' | 'anime';
+      }
+    }
+  }
+
+  const activeRules = allActiveRules.filter((rule) => {
+    const targets = rule.targetType.split(',').map((t) => t.trim().toLowerCase());
+    return targets.includes('all') || targets.includes(category);
+  });
 
   const audio = await db
     .select()

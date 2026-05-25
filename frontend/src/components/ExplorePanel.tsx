@@ -57,6 +57,7 @@ interface Library {
   id: number;
   name: string;
   path: string;
+  type: 'movie' | 'tv';
 }
 
 interface TreeNode {
@@ -65,6 +66,10 @@ interface TreeNode {
   path: string;
   children: TreeNode[];
   item?: MediaItem;
+  libraryId?: number;
+  libraryType?: 'movie' | 'tv';
+  isSeriesFolder?: boolean;
+  absolutePath?: string;
 }
 
 interface Prefs {
@@ -73,6 +78,14 @@ interface Prefs {
   audio: boolean;
   subtitles: boolean;
   compliance: boolean;
+}
+
+interface SeriesMeta {
+  id: number;
+  libraryId: number;
+  seriesPath: string;
+  seriesName: string;
+  type: 'tv' | 'anime';
 }
 
 interface ExplorePanelProps {
@@ -89,6 +102,7 @@ const DEFAULT_PREFS: Prefs = {
 
 export const ExplorePanel: React.FC<ExplorePanelProps> = ({ apiBase }) => {
   const [loading, setLoading] = useState(true);
+  const [seriesMetadata, setSeriesMetadata] = useState<SeriesMeta[]>([]);
   const [treeData, setTreeData] = useState<TreeNode[]>([]);
   const [expandedPaths, setExpandedPaths] = useState<Record<string, boolean>>({});
   const [showSettings, setShowSettings] = useState(false);
@@ -145,6 +159,55 @@ export const ExplorePanel: React.FC<ExplorePanelProps> = ({ apiBase }) => {
       .catch(err => console.error('Failed to copy raw metadata:', err));
   };
 
+  const handleToggleSeriesType = async (e: React.MouseEvent, node: TreeNode) => {
+    e.stopPropagation();
+    if (!node.libraryId || !node.absolutePath) return;
+    
+    const currentMeta = seriesMetadata.find(meta => meta.seriesPath === node.absolutePath);
+    const currentType = currentMeta ? currentMeta.type : 'tv';
+    const newType = currentType === 'tv' ? 'anime' : 'tv';
+    
+    setSeriesMetadata(prev => {
+      const exists = prev.some(m => m.seriesPath === node.absolutePath);
+      if (exists) {
+        return prev.map(m => m.seriesPath === node.absolutePath ? { ...m, type: newType } : m);
+      } else {
+        return [...prev, {
+          id: Date.now(),
+          libraryId: node.libraryId!,
+          seriesPath: node.absolutePath!,
+          seriesName: node.name,
+          type: newType
+        }];
+      }
+    });
+
+    try {
+      const res = await fetch(`${apiBase}/api/series/flag`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          libraryId: node.libraryId,
+          seriesPath: node.absolutePath,
+          seriesName: node.name,
+          type: newType
+        })
+      });
+      if (!res.ok) {
+        loadData();
+      } else {
+        const metaRes = await fetch(`${apiBase}/api/series/metadata`);
+        if (metaRes.ok) {
+          const seriesData = await metaRes.json();
+          setSeriesMetadata(seriesData);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to toggle series type:', err);
+      loadData();
+    }
+  };
+
   const handleRowClick = async (item: MediaItem) => {
     setSelectedItem(item);
     setIsDrawerOpen(true);
@@ -170,13 +233,16 @@ export const ExplorePanel: React.FC<ExplorePanelProps> = ({ apiBase }) => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [libRes, mediaRes] = await Promise.all([
+      const [libRes, mediaRes, seriesRes] = await Promise.all([
         fetch(`${apiBase}/api/libraries`),
-        fetch(`${apiBase}/api/media?limit=1000&status=active`)
+        fetch(`${apiBase}/api/media?limit=1000&status=active`),
+        fetch(`${apiBase}/api/series/metadata`)
       ]);
-      if (libRes.ok && mediaRes.ok) {
+      if (libRes.ok && mediaRes.ok && seriesRes.ok) {
         const libs = await libRes.json();
         const media = await mediaRes.json();
+        const seriesData = await seriesRes.json();
+        setSeriesMetadata(seriesData);
         buildDirectoryTree(libs, media.items);
       }
     } catch (err) {
@@ -196,7 +262,9 @@ export const ExplorePanel: React.FC<ExplorePanelProps> = ({ apiBase }) => {
       name: lib.name,
       type: 'folder',
       path: `lib_${lib.id}`,
-      children: []
+      children: [],
+      libraryId: lib.id,
+      libraryType: lib.type
     }));
 
     const rootsMap = new Map<number, TreeNode>();
@@ -231,7 +299,9 @@ export const ExplorePanel: React.FC<ExplorePanelProps> = ({ apiBase }) => {
             type: 'file',
             path: currentPath,
             children: [],
-            item: item
+            item: item,
+            libraryId: lib.id,
+            libraryType: lib.type
           });
         } else {
           // Folder node
@@ -241,7 +311,11 @@ export const ExplorePanel: React.FC<ExplorePanelProps> = ({ apiBase }) => {
               name: part,
               type: 'folder',
               path: currentPath,
-              children: []
+              children: [],
+              libraryId: lib.id,
+              libraryType: lib.type,
+              isSeriesFolder: currentFolder === rootNode && lib.type === 'tv',
+              absolutePath: currentFolder === rootNode && lib.type === 'tv' ? (lib.path.endsWith('/') ? `${lib.path}${part}` : `${lib.path}/${part}`) : undefined
             };
             currentFolder.children.push(folderNode);
           }
@@ -282,6 +356,9 @@ export const ExplorePanel: React.FC<ExplorePanelProps> = ({ apiBase }) => {
       const isExpanded = expandedPaths[node.path];
 
       if (isFolder) {
+        const meta = seriesMetadata.find(m => m.seriesPath === node.absolutePath);
+        const seriesType = meta ? meta.type : 'tv';
+
         return (
           <div key={node.path} style={{ display: 'flex', flexDirection: 'column', marginTop: '4px' }}>
             <div 
@@ -306,6 +383,52 @@ export const ExplorePanel: React.FC<ExplorePanelProps> = ({ apiBase }) => {
               <span style={{ fontSize: '0.8rem', userSelect: 'none' }}>{isExpanded ? '▼' : '▶'}</span>
               <span style={{ fontSize: '1.1rem' }}>📁</span>
               <span>{node.name}</span>
+
+              {node.isSeriesFolder && (
+                seriesType === 'anime' ? (
+                  <span 
+                    onClick={(e) => handleToggleSeriesType(e, node)}
+                    style={{
+                      marginLeft: 'auto',
+                      marginRight: '12px',
+                      padding: '3px 8px',
+                      borderRadius: '6px',
+                      fontSize: '0.75rem',
+                      fontWeight: 700,
+                      background: 'linear-gradient(135deg, #9b51e0, #7b2cbf)',
+                      border: '1px solid rgba(155, 81, 224, 0.3)',
+                      boxShadow: '0 0 10px rgba(155, 81, 224, 0.4)',
+                      color: '#ffffff',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      userSelect: 'none'
+                    }}
+                  >
+                    ✨ Anime
+                  </span>
+                ) : (
+                  <span 
+                    onClick={(e) => handleToggleSeriesType(e, node)}
+                    style={{
+                      marginLeft: 'auto',
+                      marginRight: '12px',
+                      padding: '3px 8px',
+                      borderRadius: '6px',
+                      fontSize: '0.75rem',
+                      fontWeight: 600,
+                      background: 'rgba(255, 255, 255, 0.05)',
+                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                      backdropFilter: 'blur(8px)',
+                      color: 'var(--text-secondary)',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      userSelect: 'none'
+                    }}
+                  >
+                    📺 Regular TV
+                  </span>
+                )
+              )}
             </div>
             {isExpanded && node.children.length > 0 && renderTree(node.children, depth + 1)}
           </div>
@@ -465,7 +588,7 @@ export const ExplorePanel: React.FC<ExplorePanelProps> = ({ apiBase }) => {
                     onChange={() => togglePref('audio')}
                     style={{ accentColor: 'var(--accent-cyan)' }}
                   />
-                  Audio Tracks (Default)
+                  All Audio Tracks
                 </label>
 
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', cursor: 'pointer' }}>
@@ -475,7 +598,7 @@ export const ExplorePanel: React.FC<ExplorePanelProps> = ({ apiBase }) => {
                     onChange={() => togglePref('subtitles')}
                     style={{ accentColor: 'var(--accent-cyan)' }}
                   />
-                  Subtitle Tracks (Default)
+                  All Subtitle Tracks
                 </label>
 
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', cursor: 'pointer' }}>

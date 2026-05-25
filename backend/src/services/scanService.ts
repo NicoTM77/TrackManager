@@ -1,6 +1,6 @@
-import { eq, and, inArray } from 'drizzle-orm';
+import { eq, and, inArray, like, sql } from 'drizzle-orm';
 import { db } from '../db/connection';
-import { libraries, mediaItems, audioTracks, subtitleTracks, auditResults, rules } from '../db/schema';
+import { libraries, mediaItems, audioTracks, subtitleTracks, auditResults, rules, seriesMetadata } from '../db/schema';
 import { crawlDirectory, CrawledFile } from '../utils/crawler';
 import { parseMediaFile, ParsedMediaMetadata } from '../utils/mediainfo';
 import logger from '../utils/logger';
@@ -222,6 +222,43 @@ export async function scanLibrary(libraryId: number): Promise<ScanSummary> {
     } catch (error: any) {
       logger.error(`Failed to parse newly discovered file "${file.filePath}":`, error);
       summary.failed++;
+    }
+  }
+
+  // 7.5. Series Metadata Cascade Cleanup
+  // Check if any series_metadata is registered for this library, and if all of its episodes 
+  // are marked as removed (no active mediaItems exist under the series folder path),
+  // delete the series_metadata configuration to prevent cluttering the database.
+  if (library.type === 'tv') {
+    try {
+      const activeSeriesMetadata = await db
+        .select()
+        .from(seriesMetadata)
+        .where(eq(seriesMetadata.libraryId, libraryId));
+
+      for (const meta of activeSeriesMetadata) {
+        // Count active media items matching the series path prefix
+        const [activeCountRes] = await db
+          .select({ count: sql<number>`count(*)` })
+          .from(mediaItems)
+          .where(
+            and(
+              eq(mediaItems.libraryId, libraryId),
+              eq(mediaItems.status, 'active'),
+              like(mediaItems.filePath, `${meta.seriesPath}%`)
+            )
+          );
+        
+        const activeCount = activeCountRes ? activeCountRes.count : 0;
+        if (activeCount === 0) {
+          logger.info(`Cascade cleanup: No active items remaining for series "${meta.seriesName}". Deleting series metadata configuration.`);
+          await db
+            .delete(seriesMetadata)
+            .where(eq(seriesMetadata.id, meta.id));
+        }
+      }
+    } catch (cascadeError: any) {
+      logger.error(cascadeError, 'Failed to execute series metadata cascade cleanup.');
     }
   }
 

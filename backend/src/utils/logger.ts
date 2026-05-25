@@ -2,6 +2,9 @@ import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
 
+// Detect if we are running under a test runner (Vitest)
+const isTest = process.env.NODE_ENV === 'test' || process.env.VITEST === 'true';
+
 // Prioritize root .env in development using absolute file resolution (immune to process.cwd drifts)
 const rootEnv = path.resolve(__dirname, '../../../.env');
 const localEnv = path.resolve(__dirname, '../../.env');
@@ -11,6 +14,12 @@ if (fs.existsSync(rootEnv)) {
   dotenv.config({ path: localEnv, override: true });
 } else {
   dotenv.config({ override: true });
+}
+
+// Guarantee that running tests never overwrites the development database
+if (isTest) {
+  process.env.NODE_ENV = 'test';
+  process.env.DATABASE_URL = ':memory:';
 }
 
 import pino from 'pino';
