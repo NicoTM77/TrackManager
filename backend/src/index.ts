@@ -71,6 +71,18 @@ async function startServer() {
     const allLibs = await db.select().from(libraries);
     for (const lib of allLibs) {
       scanStatusMap.set(lib.id, 'idle'); // Set default state
+
+      // Query maximum scannedAt from mediaItems for this library to restore lastScanCompletedMap persistently on restart
+      const [maxScanned] = await db
+        .select({ maxScan: sql<Date>`max(scanned_at)` })
+        .from(mediaItems)
+        .where(eq(mediaItems.libraryId, lib.id));
+      if (maxScanned && maxScanned.maxScan) {
+        const maxScanDate = new Date(maxScanned.maxScan);
+        lastScanCompletedMap.set(lib.id, maxScanDate.toISOString());
+        logger.info(`Restored last sync completed timestamp for library "${lib.name}" [ID: ${lib.id}]: ${maxScanDate.toISOString()}`);
+      }
+
       refreshLibraryTimer(lib.id, lib.refreshInterval, lib.isAutoRefreshEnabled);
     }
     
@@ -341,6 +353,34 @@ app.post('/api/libraries/:id/scan', async (req, res) => {
   }
 });
 
+// POST /api/libraries/:id/audit - Trigger an isolated database-only compliance audit
+app.post('/api/libraries/:id/audit', async (req, res) => {
+  const libraryId = parseInt(req.params.id, 10);
+  logger.debug({ libraryId }, 'POST /api/libraries/:id/audit requested');
+  if (isNaN(libraryId)) {
+    return res.status(400).json({ error: 'Invalid library ID.' });
+  }
+
+  try {
+    const [lib] = await db.select().from(libraries).where(eq(libraries.id, libraryId)).limit(1);
+    if (!lib) {
+      return res.status(404).json({ error: 'Library not found.' });
+    }
+
+    if (scanStatusMap.get(libraryId) === 'scanning') {
+      return res.status(409).json({ error: 'Cannot run audits while a scan is in progress.' });
+    }
+
+    logger.info(`Running isolated database audits for library "${lib.name}" [ID: ${libraryId}]`);
+    await runLibraryAudits(libraryId);
+
+    res.json({ message: `Audits executed successfully for library: ${lib.name}` });
+  } catch (error: any) {
+    logger.error(error, `Failed to execute isolated audits for library ID ${libraryId}`);
+    res.status(500).json({ error: 'Failed to execute library audits.' });
+  }
+});
+
 // ----------------------------------------------------
 // 2. RULES API
 // ----------------------------------------------------
@@ -565,12 +605,20 @@ app.get('/api/media', async (req, res) => {
     const total = countRes ? countRes.count : 0;
 
     // 3. Fetch paginated media items
-    const items = await db
-      .select()
-      .from(mediaItems)
-      .where(whereClause)
-      .limit(limitNum)
-      .offset(offsetNum);
+    let items;
+    if (limit === '-1' || limitNum === -1) {
+      items = await db
+        .select()
+        .from(mediaItems)
+        .where(whereClause);
+    } else {
+      items = await db
+        .select()
+        .from(mediaItems)
+        .where(whereClause)
+        .limit(limitNum)
+        .offset(offsetNum);
+    }
 
     if (items.length === 0) {
       return res.json({ total, limit: limitNum, offset: offsetNum, items: [] });

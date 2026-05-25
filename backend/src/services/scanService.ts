@@ -6,6 +6,38 @@ import { parseMediaFile, ParsedMediaMetadata } from '../utils/mediainfo';
 import logger from '../utils/logger';
 import fs from 'fs';
 
+const CONCURRENT_SCAN_THREADS = parseInt(process.env.CONCURRENT_SCAN_THREADS || '4', 10);
+
+/**
+ * Executes async tasks concurrently with a maximum concurrency limit.
+ */
+async function promisePool<T, R>(
+  items: T[],
+  concurrency: number,
+  fn: (item: T) => Promise<R>
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let index = 0;
+  
+  const workers = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+    while (index < items.length) {
+      const currentIndex = index++;
+      results[currentIndex] = await fn(items[currentIndex]);
+    }
+  });
+  
+  await Promise.all(workers);
+  return results;
+}
+
+// In-memory serialized database write queue to prevent SQLITE_BUSY
+let dbWriteQueue = Promise.resolve();
+async function enqueueDbWrite<T>(writeFn: () => Promise<T>): Promise<T> {
+  const resultPromise = dbWriteQueue.then(writeFn);
+  dbWriteQueue = resultPromise.then(() => {}).catch(() => {});
+  return resultPromise;
+}
+
 export interface ScanSummary {
   libraryName: string;
   totalFoundOnDisk: number;
@@ -170,6 +202,8 @@ export async function scanLibrary(libraryId: number): Promise<ScanSummary> {
 
   // 6. Fast Path Optimization
   // Process files existing both on disk and in database, skipping parsing if size/mtime match.
+  const modifiedFilesToReparse: { recordId: number; file: CrawledFile }[] = [];
+
   for (const file of diskFiles) {
     // If it was already processed as a move, skip
     if (movedDiskPaths.has(file.filePath)) continue;
@@ -197,32 +231,46 @@ export async function scanLibrary(libraryId: number): Promise<ScanSummary> {
         summary.skippedFastPath++;
       }
     } else {
-      // File has changed - re-parse it
-      logger.debug(`File modification detected (re-parsing): ${file.filePath}`);
-      try {
-        const meta = await parseMediaFile(file.filePath);
-        await updateMediaItemTransaction(record.id, meta, file.fileSize, file.mtimeMs);
-        summary.newParsed++;
-      } catch (error: any) {
-        logger.error(`Failed to re-parse modified file "${file.filePath}":`, error);
-        summary.failed++;
-      }
+      // File has changed - queue it for concurrent re-parsing
+      modifiedFilesToReparse.push({ recordId: record.id, file });
     }
   }
 
+  // Concurrently parse modified files and sequentially update the database
+  if (modifiedFilesToReparse.length > 0) {
+    logger.info(`Concurrent Scan: Re-parsing ${modifiedFilesToReparse.length} modified files using ${CONCURRENT_SCAN_THREADS} workers.`);
+    await promisePool(modifiedFilesToReparse, CONCURRENT_SCAN_THREADS, async (item) => {
+      logger.debug(`File modification detected (re-parsing): ${item.file.filePath}`);
+      try {
+        const meta = await parseMediaFile(item.file.filePath);
+        await enqueueDbWrite(() =>
+          updateMediaItemTransaction(item.recordId, meta, item.file.fileSize, item.file.mtimeMs)
+        );
+        summary.newParsed++;
+      } catch (error: any) {
+        logger.error(`Failed to re-parse modified file "${item.file.filePath}":`, error);
+        summary.failed++;
+      }
+    });
+  }
+
   // 7. Parse Brand New Additions
-  // Parse newly discovered files using MediaInfo and load them inside structured database transactions.
-  // We process them sequentially (or we could bound concurrency) to ensure transaction safety.
-  for (const file of remainingNewOnDisk) {
-    logger.debug(`Discovered new file (parsing): ${file.filePath}`);
-    try {
-      const meta = await parseMediaFile(file.filePath);
-      await createMediaItemTransaction(libraryId, file.filePath, file.fileName, file.fileSize, file.mtimeMs, meta);
-      summary.newParsed++;
-    } catch (error: any) {
-      logger.error(`Failed to parse newly discovered file "${file.filePath}":`, error);
-      summary.failed++;
-    }
+  // Parse newly discovered files using MediaInfo concurrently and load them inside structured database transactions sequentially.
+  if (remainingNewOnDisk.length > 0) {
+    logger.info(`Concurrent Scan: Parsing ${remainingNewOnDisk.length} brand new additions using ${CONCURRENT_SCAN_THREADS} workers.`);
+    await promisePool(remainingNewOnDisk, CONCURRENT_SCAN_THREADS, async (file) => {
+      logger.debug(`Discovered new file (parsing): ${file.filePath}`);
+      try {
+        const meta = await parseMediaFile(file.filePath);
+        await enqueueDbWrite(() =>
+          createMediaItemTransaction(libraryId, file.filePath, file.fileName, file.fileSize, file.mtimeMs, meta)
+        );
+        summary.newParsed++;
+      } catch (error: any) {
+        logger.error(`Failed to parse newly discovered file "${file.filePath}":`, error);
+        summary.failed++;
+      }
+    });
   }
 
   // 7.5. Series Metadata Cascade Cleanup

@@ -95,6 +95,13 @@ TrackManager uses Drizzle ORM to manage SQLite tables. Local SQLite file default
     This compiles Drizzle definitions and deposits SQL scripts inside `backend/drizzle/`.
 2.  **Startup Migrations:** Drizzle migrations are automatically applied on server boot via the database re-initializer inside `backend/src/db/connection.ts`. There is no manual SQLite command needed to initialize databases in dev or prod!
 
+### E. Environmental Configurations
+Developers can configure the following variables inside `.env` or the environment:
+*   `PORT` (default `3000`): Port on which the backend Express server listens.
+*   `LOG_LEVEL` (default `info`): Structured logging verbosity level (`trace`, `debug`, `info`, `warn`, `error`, `fatal`).
+*   `DATABASE_URL` (default `local.db`): Filepath to the local SQLite database.
+*   `CONCURRENT_SCAN_THREADS` (default `4`): Number of concurrent workers spawning parallel MediaInfo subprocesses during filesystem sweeps. Safe sequencing in a centralized promise queue protects Drizzle transactions against SQLite locking issues.
+
 ---
 
 ## 3. Rules Evaluation AST (JSON Syntax)

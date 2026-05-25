@@ -95,6 +95,20 @@ Triggers an immediate background synchronization scan. The scan recursively craw
     *   `409 Conflict`: A scan is already running for this library.
     *   `404 Not Found`: Library ID not found.
 
+### POST `/api/libraries/:id/audit`
+Triggers an isolated, database-only compliance audit scan for a specific media library. This scans metadata already parsed and stored in SQLite, skipping all filesystem walks and disk I/O.
+
+*   **Method:** `POST`
+*   **Success Response (200 OK):**
+    ```json
+    {
+      "message": "Audits executed successfully for library: SciFi Series"
+    }
+    ```
+*   **Error Responses:**
+    *   `409 Conflict`: Cannot run audits while a scan is in progress.
+    *   `404 Not Found`: Library ID not found.
+
 ---
 
 ## 2. Auditing Rules Configuration API

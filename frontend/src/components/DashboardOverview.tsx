@@ -33,6 +33,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ apiBase, o
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
   const [saveGlow, setSaveGlow] = useState<Record<number, boolean>>({});
+  const [auditLoading, setAuditLoading] = useState<Record<number, boolean>>({});
   
   // Library addition modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -78,6 +79,24 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ apiBase, o
     } catch (err) {
       console.error('Failed to trigger scan:', err);
       fetchData();
+    }
+  };
+
+  const handleRunAuditsOnly = async (libraryId: number) => {
+    setAuditLoading(prev => ({ ...prev, [libraryId]: true }));
+    try {
+      const res = await fetch(`${apiBase}/api/libraries/${libraryId}/audit`, { method: 'POST' });
+      if (res.ok) {
+        setSaveGlow(prev => ({ ...prev, [libraryId]: true }));
+        setTimeout(() => {
+          setSaveGlow(prev => ({ ...prev, [libraryId]: false }));
+        }, 1500);
+        fetchData();
+      }
+    } catch (err) {
+      console.error('Failed to run isolated audits:', err);
+    } finally {
+      setAuditLoading(prev => ({ ...prev, [libraryId]: false }));
     }
   };
 
@@ -419,7 +438,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ apiBase, o
                 )}
               </div>
               
-              <div className="library-card-footer">
+              <div className="library-card-footer" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                   {lib.status === 'scanning' ? (
                     <div className="scanning-indicator">
@@ -433,14 +452,37 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ apiBase, o
                   )}
                 </div>
                 
-                <button 
-                  className={`btn ${lib.status === 'scanning' ? 'btn-secondary' : 'btn-primary'}`}
-                  style={{ padding: '6px 12px', fontSize: '0.8rem', borderRadius: '6px' }}
-                  disabled={lib.status === 'scanning'}
-                  onClick={() => handleScan(lib.id)}
-                >
-                  {lib.status === 'scanning' ? 'Scanning...' : '🔄 Scan Now'}
-                </button>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <button 
+                    className="btn"
+                    style={{ 
+                      padding: '6px 12px', 
+                      fontSize: '0.8rem', 
+                      borderRadius: '6px',
+                      background: 'rgba(155, 81, 224, 0.12)', 
+                      border: '1px solid rgba(155, 81, 224, 0.25)',
+                      color: '#ffffff',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      boxShadow: '0 0 10px rgba(155, 81, 224, 0.1)',
+                      fontFamily: 'var(--font-headings)',
+                      fontWeight: 600
+                    }}
+                    disabled={lib.status === 'scanning' || auditLoading[lib.id]}
+                    onClick={() => handleRunAuditsOnly(lib.id)}
+                  >
+                    {auditLoading[lib.id] ? 'Auditing...' : '⚖️ Run Audits Only'}
+                  </button>
+
+                  <button 
+                    className={`btn ${lib.status === 'scanning' ? 'btn-secondary' : 'btn-primary'}`}
+                    style={{ padding: '6px 12px', fontSize: '0.8rem', borderRadius: '6px' }}
+                    disabled={lib.status === 'scanning'}
+                    onClick={() => handleScan(lib.id)}
+                  >
+                    {lib.status === 'scanning' ? 'Scanning...' : '🔄 Scan Now'}
+                  </button>
+                </div>
               </div>
             </div>
           ))}

@@ -221,7 +221,7 @@ export async function parseMediaFile(filePath: string): Promise<ParsedMediaMetad
   });
 
   // 4. Parse Subtitle Tracks
-  const subtitleTracksList = tracks.filter((t: any) => t['@type'] === 'Subtitle');
+  const subtitleTracksList = tracks.filter((t: any) => t['@type'] === 'Subtitle' || t['@type'] === 'Text');
   const subtitleTracks: ParsedSubtitleTrack[] = subtitleTracksList.map((track: any, idx: number) => {
     return {
       trackIndex: parseInt(track.ID, 10) || idx + 1,

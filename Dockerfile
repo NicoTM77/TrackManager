@@ -1,10 +1,11 @@
 # Stage 1: Build the frontend React app
 FROM node:20-alpine AS frontend-builder
-WORKDIR /app/frontend
-COPY frontend/package*.json ./
-RUN npm ci
-COPY frontend/ ./
-RUN npm run build
+WORKDIR /app
+COPY package*.json ./
+COPY frontend/package*.json ./frontend/
+RUN npm ci --workspace=frontend
+COPY frontend/ ./frontend/
+RUN npm run build -w frontend
 
 # Stage 2: Build the backend Express app and install production dependencies
 FROM node:20-alpine AS backend-builder
@@ -26,7 +27,7 @@ RUN apk add --no-cache mediainfo libstdc++ libgcc
 WORKDIR /app
 
 # Copy production backend dependencies and compiled JS build
-COPY --from=backend-builder /app/backend/node_modules ./backend/node_modules
+COPY --from=backend-builder /app/node_modules ./node_modules
 COPY --from=backend-builder /app/backend/dist ./backend/dist
 COPY --from=backend-builder /app/backend/package.json ./backend/package.json
 COPY --from=backend-builder /app/backend/drizzle ./backend/drizzle
@@ -44,6 +45,7 @@ USER node
 EXPOSE 3000
 ENV NODE_ENV=production
 ENV PORT=3000
+ENV DATABASE_URL=/app/data/local.db
 
 # Start server
 CMD ["node", "backend/dist/index.js"]

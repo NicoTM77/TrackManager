@@ -2,8 +2,10 @@ version: '3.8'
 
 services:
   trackmanager:
-    image: ghcr.io/nicotm77/trackmanager:latest
-    container_name: trackmanager
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: trackmanager-build
     ports:
       - "3000:3000"
     environment:
@@ -13,7 +15,7 @@ services:
       - DATABASE_URL=/app/data/local.db
       - CONCURRENT_SCAN_THREADS=4
     volumes:
-      # Persistent SQLite Storage directory
+      # Persistent storage directory for SQLite database files
       - ./data:/app/data
       # Mount host media libraries securely into the media container path (read-only)
       - /path/to/Media:/media:ro
