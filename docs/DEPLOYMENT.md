@@ -17,7 +17,7 @@ version: '3.8'
 
 services:
   trackmanager:
-    image: nicolas/trackmanager:latest
+    image: ghcr.io/nicotm77/trackmanager:latest
     container_name: trackmanager
     restart: unless-stopped
     ports:

@@ -10,7 +10,46 @@ Features include a fully responsive, dark-mode first **glassmorphic React dashbo
 
 ---
 
-## 🚀 Spawning Development Environment
+## 🐳 Getting Started (Quick Run via Docker Compose)
+
+If you simply want to run TrackManager as a user, the easiest way is to use **Docker Compose** to pull and run the pre-built image directly from the GitHub Container Registry:
+
+1. **Create a `docker-compose.yml` file:**
+   Create a new directory and save the following content into a `docker-compose.yml` file:
+   ```yaml
+   version: '3.8'
+
+   services:
+     trackmanager:
+       image: ghcr.io/nicotm77/trackmanager:latest
+       container_name: trackmanager
+       ports:
+         - "3000:3000"
+       environment:
+         - NODE_ENV=production
+         - LOG_LEVEL=info
+         - PORT=3000
+         - DATABASE_URL=/app/data/local.db
+         - CONCURRENT_SCAN_THREADS=4
+       volumes:
+         # Persistent SQLite Storage directory
+         - ./data:/app/data
+         # Mount host media libraries securely into the container (read-only)
+         - /path/to/Media:/media:ro
+       restart: unless-stopped
+   ```
+2. **Launch the Container:**
+   Run the following command in the same directory:
+   ```bash
+   docker compose up -d
+   ```
+3. **Access the WebUI:**
+   Open your browser and navigate to `http://localhost:3000` to start configuring libraries and audit rules!
+
+---
+
+## 🛠️ Spawning Development Environment
+
 
 ### 1. Prerequisites
 Ensure you have the following installed on your host:
@@ -100,6 +139,15 @@ TrackManager/
 
 ## 📖 Additional Documentation
 For complete roadmap structures, deployment maps, and API listings, explore the dedicated guidebooks:
-* 🗺️ **[Developer Blueprint](file:///Users/baern/Documents/TrackManager/docs/DEVELOPMENT.md)**
-* 📡 **[REST API Specifications](file:///Users/baern/Documents/TrackManager/docs/API.md)**
-* 🐳 **[Docker Production Guide](file:///Users/baern/Documents/TrackManager/docs/DEPLOYMENT.md)**
+* 🗺️ **[Developer Blueprint](./docs/DEVELOPMENT.md)**
+* 📡 **[REST API Specifications](./docs/API.md)**
+* 🐳 **[Docker Production Guide](./docs/DEPLOYMENT.md)**
+* 📜 **[Advanced Rules JSON Guide](./docs/RULES_SYNTAX.md)**
+
+---
+
+## ⚖️ Credits & License
+
+TrackManager was designed and architected by **NicoTM77**, with core code generation and structural implementation accelerated by **Antigravity 2.0**.
+
+This project is licensed under the [MIT License](./LICENSE) - see the [LICENSE](./LICENSE) file for details.
