@@ -22,6 +22,19 @@ interface RulesBuilderProps {
   apiBase: string;
 }
 
+const parseChannelsValue = (channels: any): string | number => {
+  if (channels === undefined || channels === null) return '';
+  if (typeof channels === 'number') return channels;
+  if (typeof channels === 'string') {
+    const match = channels.match(/\d+/);
+    return match ? parseInt(match[0], 10) : '';
+  }
+  if (typeof channels === 'object' && channels !== null) {
+    return channels.value !== undefined ? channels.value : '';
+  }
+  return '';
+};
+
 export const RulesBuilder: React.FC<RulesBuilderProps> = ({ apiBase }) => {
   const [rules, setRules] = useState<Rule[]>([]);
   const [loading, setLoading] = useState(true);
@@ -114,7 +127,7 @@ export const RulesBuilder: React.FC<RulesBuilderProps> = ({ apiBase }) => {
         if (val === 'audio') {
           newCond.operator = 'HAS_AUDIO';
           delete newCond.value;
-          newCond.params = { language: 'eng', format: ['TrueHD'], channels: 6 };
+          newCond.params = { language: 'eng', format: ['TrueHD'], channels: '>= 6' };
         } else if (val === 'subtitles') {
           newCond.operator = 'HAS_SUBTITLE';
           delete newCond.value;
@@ -1074,8 +1087,8 @@ export const RulesBuilder: React.FC<RulesBuilderProps> = ({ apiBase }) => {
                                 className="form-input" 
                                 style={{ padding: '4px 8px', fontSize: '0.8rem', width: '60px' }}
                                 placeholder="6"
-                                value={cond.params?.channels || ''}
-                                onChange={(e) => handleParamChange(idx, 'channels', e.target.value ? parseInt(e.target.value, 10) : undefined)}
+                                value={parseChannelsValue(cond.params?.channels)}
+                                onChange={(e) => handleParamChange(idx, 'channels', e.target.value ? `>= ${e.target.value}` : undefined)}
                               />
                             </div>
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center', marginTop: '4px' }}>

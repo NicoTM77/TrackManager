@@ -36,7 +36,7 @@ export function normalizeLanguage(lang: string | null | undefined): string {
   if (clean === 'fr' || clean === 'fre' || clean === 'fra' || clean === 'french') return 'fre';
   if (clean === 'es' || clean === 'spa' || clean === 'spanish' || clean === 'espanol') return 'spa';
   if (clean === 'it' || clean === 'ita' || clean === 'italian') return 'ita';
-  if (clean === 'ja' || clean === 'jpn' || clean === 'japanese') return 'jpn';
+  if (clean === 'ja' || clean === 'jpn' || clean === 'jap' || clean === 'japanese') return 'jpn';
   if (clean === 'zh' || clean === 'chi' || clean === 'zho' || clean === 'chinese') return 'chi';
   if (clean === 'ru' || clean === 'rus' || clean === 'russian') return 'rus';
   if (clean === 'nl' || clean === 'dut' || clean === 'nld' || clean === 'dutch') return 'dut';
