@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  trackmanager:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: trackmanager
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - LOG_LEVEL=trace
+      - PORT=3000
+      - DATABASE_URL=/app/data/local.db
+    volumes:
+      # Persistent storage directory for SQLite database files
+      - ./data:/app/data
+      # Mount host media libraries securely into the media container path (read-only)
+      - /path/to/Media:/media:ro
+    restart: unless-stopped
