@@ -1,10 +1,11 @@
 # Stage 1: Build the frontend React app
 FROM node:20-alpine AS frontend-builder
-WORKDIR /app/frontend
-COPY frontend/package*.json ./
-RUN npm ci
-COPY frontend/ ./
-RUN npm run build
+WORKDIR /app
+COPY package*.json ./
+COPY frontend/package*.json ./frontend/
+RUN npm ci --workspace=frontend
+COPY frontend/ ./frontend/
+RUN npm run build -w frontend
 
 # Stage 2: Build the backend Express app and install production dependencies
 FROM node:20-alpine AS backend-builder
