@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { DashboardOverview } from './components/DashboardOverview';
 import { ExplorePanel } from './components/ExplorePanel';
 import { AuditGrid } from './components/AuditGrid';
@@ -11,6 +12,7 @@ type Tab = 'dashboard' | 'explore' | 'audit' | 'rules' | 'history';
 const API_BASE = window.location.port === '5173' ? 'http://localhost:3000' : '';
 
 function App() {
+  const { t, i18n } = useTranslation();
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
   
   // Navigation states shared between components
@@ -35,7 +37,7 @@ function App() {
       {/* --- SIDEBAR NAVIGATION --- */}
       <aside className="app-sidebar glass-panel" style={{ borderRadius: '0px', borderLeft: 'none', borderTop: 'none', borderBottom: 'none' }}>
         <div className="sidebar-logo">
-          TrackManager
+          {t('sidebar.logo')}
         </div>
         
         <nav className="sidebar-nav">
@@ -43,37 +45,62 @@ function App() {
             className={`sidebar-link ${activeTab === 'dashboard' ? 'active' : ''}`}
             onClick={() => handleTabChange('dashboard')}
           >
-            📊 Dashboard
+            {t('sidebar.dashboard')}
           </button>
           <button 
             className={`sidebar-link ${activeTab === 'explore' ? 'active' : ''}`}
             onClick={() => handleTabChange('explore')}
           >
-            📁 Explore
+            {t('sidebar.explore')}
           </button>
           <button 
             className={`sidebar-link ${activeTab === 'audit' ? 'active' : ''}`}
             onClick={() => handleTabChange('audit')}
           >
-            ⚖️ Audit Center
+            {t('sidebar.auditCenter')}
           </button>
           <button 
             className={`sidebar-link ${activeTab === 'rules' ? 'active' : ''}`}
             onClick={() => handleTabChange('rules')}
           >
-            ⚙️ Custom Rules
+            {t('sidebar.customRules')}
           </button>
           <button 
             className={`sidebar-link ${activeTab === 'history' ? 'active' : ''}`}
             onClick={() => handleTabChange('history')}
           >
-            👻 Ghost History
+            {t('sidebar.ghostHistory')}
           </button>
         </nav>
 
-        <div style={{ marginTop: 'auto', padding: '16px', background: 'rgba(255,255,255,0.02)', borderRadius: '10px', border: 'var(--panel-border)', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-          <div>Server: <strong style={{ color: 'var(--accent-cyan)' }}>Online</strong></div>
-          <div style={{ marginTop: '4px' }}>Version: 1.0.0 (Self-Hosted)</div>
+        {/* --- LANGUAGE SWITCHER --- */}
+        <div style={{ marginTop: 'auto', marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <select
+            value={i18n.language}
+            onChange={(e) => {
+              const newLang = e.target.value;
+              i18n.changeLanguage(newLang);
+              localStorage.setItem('trackmanager_language', newLang);
+            }}
+            className="form-select"
+            style={{
+              padding: '8px 12px',
+              fontSize: '0.85rem',
+              background: 'rgba(255, 255, 255, 0.03)',
+              border: 'var(--panel-border)',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              color: 'var(--text-primary)'
+            }}
+          >
+            <option value="en" style={{ background: '#0c1122', color: '#fff' }}>{t('sidebar.english')}</option>
+            <option value="de" style={{ background: '#0c1122', color: '#fff' }}>{t('sidebar.german')}</option>
+          </select>
+        </div>
+
+        <div style={{ padding: '16px', background: 'rgba(255,255,255,0.02)', borderRadius: '10px', border: 'var(--panel-border)', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+          <div>{t('sidebar.server')} <strong style={{ color: 'var(--accent-cyan)' }}>{t('sidebar.online')}</strong></div>
+          <div style={{ marginTop: '4px' }}>{t('sidebar.version', { version: '1.0.0' })}</div>
         </div>
       </aside>
 

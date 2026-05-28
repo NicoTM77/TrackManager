@@ -29,21 +29,28 @@ const VIDEO_EXTENSIONS = new Set([
  * @returns Array of crawled files with paths, sizes, and mtimes.
  */
 export function crawlDirectory(dirPath: string): CrawledFile[] {
+  const resolvedPath = path.normalize(path.resolve(dirPath));
   const files: CrawledFile[] = [];
 
   function walk(currentPath: string) {
-    logger.trace(`Walking directory: ${currentPath}`);
+    const normalizedCurrent = path.normalize(path.resolve(currentPath));
+    if (!normalizedCurrent.startsWith(resolvedPath)) {
+      logger.warn(`Crawler blocked path crossing trust boundary: ${currentPath}`);
+      return;
+    }
+
+    logger.trace(`Walking directory: ${normalizedCurrent}`);
     let entries: fs.Dirent[] = [];
     
     try {
-      entries = fs.readdirSync(currentPath, { withFileTypes: true });
+      entries = fs.readdirSync(normalizedCurrent, { withFileTypes: true });
     } catch (error: any) {
-      logger.error(`Crawler failed to read directory "${currentPath}": ${error.message}`);
+      logger.error(`Crawler failed to read directory "${normalizedCurrent}": ${error.message}`);
       return;
     }
 
     for (const entry of entries) {
-      const fullPath = path.join(currentPath, entry.name);
+      const fullPath = path.normalize(path.join(normalizedCurrent, entry.name));
       
       if (entry.isDirectory()) {
         walk(fullPath);
@@ -67,15 +74,15 @@ export function crawlDirectory(dirPath: string): CrawledFile[] {
     }
   }
 
-  logger.debug(`Beginning recursive walk on library path: ${dirPath}`);
+  logger.debug(`Beginning recursive walk on library path: ${resolvedPath}`);
   
-  if (!fs.existsSync(dirPath)) {
-    logger.error(`Crawl target path does not exist: ${dirPath}`);
+  if (!fs.existsSync(resolvedPath)) {
+    logger.error(`Crawl target path does not exist: ${resolvedPath}`);
     return [];
   }
 
-  walk(dirPath);
-  logger.debug(`Completed walk for "${dirPath}". Total video files found: ${files.length}`);
+  walk(resolvedPath);
+  logger.debug(`Completed walk for "${resolvedPath}". Total video files found: ${files.length}`);
   return files;
 }
 export default crawlDirectory;

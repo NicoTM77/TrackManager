@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface Library {
   id: number;
@@ -29,11 +30,12 @@ interface DashboardOverviewProps {
 }
 
 export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ apiBase, onNavigateToAudit }) => {
+  const { t } = useTranslation();
   const [libraries, setLibraries] = useState<Library[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [saveGlow, setSaveGlow] = useState<Record<number, boolean>>({});
-  const [auditLoading, setAuditLoading] = useState<Record<number, boolean>>({});
+  const [saveGlow, setSaveGlow] = useState<Map<number, boolean>>(new Map());
+  const [auditLoading, setAuditLoading] = useState<Map<number, boolean>>(new Map());
   
   // Library addition modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -83,20 +85,20 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ apiBase, o
   };
 
   const handleRunAuditsOnly = async (libraryId: number) => {
-    setAuditLoading(prev => ({ ...prev, [libraryId]: true }));
+    setAuditLoading(prev => { const m = new Map(prev); m.set(libraryId, true); return m; });
     try {
       const res = await fetch(`${apiBase}/api/libraries/${libraryId}/audit`, { method: 'POST' });
       if (res.ok) {
-        setSaveGlow(prev => ({ ...prev, [libraryId]: true }));
+        setSaveGlow(prev => { const m = new Map(prev); m.set(libraryId, true); return m; });
         setTimeout(() => {
-          setSaveGlow(prev => ({ ...prev, [libraryId]: false }));
+          setSaveGlow(prev => { const m = new Map(prev); m.set(libraryId, false); return m; });
         }, 1500);
         fetchData();
       }
     } catch (err) {
       console.error('Failed to run isolated audits:', err);
     } finally {
-      setAuditLoading(prev => ({ ...prev, [libraryId]: false }));
+      setAuditLoading(prev => { const m = new Map(prev); m.set(libraryId, false); return m; });
     }
   };
 
@@ -117,9 +119,9 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ apiBase, o
         })
       });
       if (res.ok) {
-        setSaveGlow(prev => ({ ...prev, [libraryId]: true }));
+        setSaveGlow(prev => { const m = new Map(prev); m.set(libraryId, true); return m; });
         setTimeout(() => {
-          setSaveGlow(prev => ({ ...prev, [libraryId]: false }));
+          setSaveGlow(prev => { const m = new Map(prev); m.set(libraryId, false); return m; });
         }, 1500);
       } else {
         fetchData(); // Rollback on error
@@ -149,9 +151,9 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ apiBase, o
         })
       });
       if (res.ok) {
-        setSaveGlow(prev => ({ ...prev, [libraryId]: true }));
+        setSaveGlow(prev => { const m = new Map(prev); m.set(libraryId, true); return m; });
         setTimeout(() => {
-          setSaveGlow(prev => ({ ...prev, [libraryId]: false }));
+          setSaveGlow(prev => { const m = new Map(prev); m.set(libraryId, false); return m; });
         }, 1500);
         fetchData(); // Sync with database state
       }
@@ -165,7 +167,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ apiBase, o
     e.preventDefault();
     setFormError('');
     if (!newLibName || !newLibPath) {
-      setFormError('Please fill in all fields.');
+      setFormError(t('dashboard.fillFieldsError', { defaultValue: 'Please fill in all fields.' }));
       return;
     }
 
@@ -187,15 +189,15 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ apiBase, o
         fetchData();
       } else {
         const errData = await res.json();
-        setFormError(errData.error || 'Failed to create library.');
+        setFormError(errData.error || t('dashboard.failedCreateError', { defaultValue: 'Failed to create library.' }));
       }
     } catch (err) {
-      setFormError('Network error occurred.');
+      setFormError(t('dashboard.networkError', { defaultValue: 'Network error occurred.' }));
     }
   };
 
   const handleDeleteLibrary = async (id: number) => {
-    if (!confirm('Are you sure you want to delete this library configuration? All indexed metadata and compliance history will be deleted.')) {
+    if (!confirm(t('dashboard.deleteConfirm', { defaultValue: 'Are you sure you want to delete this library configuration? All indexed metadata and compliance history will be deleted.' }))) {
       return;
     }
 
@@ -212,7 +214,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ apiBase, o
   if (loading && !stats) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh', fontFamily: 'var(--font-headings)', fontWeight: 600 }}>
-        Loading analytical hub...
+        {t('dashboard.loading')}
       </div>
     );
   }
@@ -226,11 +228,11 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ apiBase, o
     <div style={{ animation: 'fadeIn 0.4s ease-out' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '30px' }}>
         <div>
-          <h1 className="page-title">Library Overview</h1>
-          <p className="page-subtitle">Real-time health audits, storage layouts, and sync status summaries.</p>
+          <h1 className="page-title">{t('dashboard.title')}</h1>
+          <p className="page-subtitle">{t('dashboard.subtitle')}</p>
         </div>
         <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>
-          ➕ Add Library
+          {t('dashboard.addLibrary')}
         </button>
       </div>
 
@@ -239,7 +241,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ apiBase, o
         
         {/* Compliance Radial Gauge Card */}
         <div className="glass-panel" style={{ padding: '30px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '280px' }}>
-          <h2 style={{ fontSize: '1.2rem', marginBottom: '20px', textAlign: 'center', fontWeight: 600 }}>Compliance Score</h2>
+          <h2 style={{ fontSize: '1.2rem', marginBottom: '20px', textAlign: 'center', fontWeight: 600 }}>{t('dashboard.complianceScore')}</h2>
           <div className="compliance-gauge-wrapper">
             <svg width="180" height="180" className="gauge-svg">
               <defs>
@@ -260,41 +262,41 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ apiBase, o
             </svg>
             <div className="gauge-center-text">
               <div className="gauge-value">{complianceVal}%</div>
-              <div className="gauge-label">PASSED</div>
+              <div className="gauge-label">{t('dashboard.passed')}</div>
             </div>
           </div>
           <div style={{ display: 'flex', gap: '20px', marginTop: '20px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-            <div>Passed: <strong>{stats?.passedAudits ?? 0}</strong></div>
+            <div>{t('dashboard.passedCount')}<strong>{stats?.passedAudits ?? 0}</strong></div>
             <div>|</div>
-            <div>Total Checks: <strong>{stats?.totalAudits ?? 0}</strong></div>
+            <div>{t('dashboard.totalChecks')}<strong>{stats?.totalAudits ?? 0}</strong></div>
           </div>
         </div>
 
         {/* Media Distribution Stat Cards */}
         <div className="glass-panel" style={{ padding: '30px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: '280px' }}>
           <div>
-            <h2 style={{ fontSize: '1.2rem', marginBottom: '20px', fontWeight: 600 }}>General Statistics</h2>
+            <h2 style={{ fontSize: '1.2rem', marginBottom: '20px', fontWeight: 600 }}>{t('dashboard.generalStats')}</h2>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
               <div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.5px' }}>MOVIES</div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.5px' }}>{t('dashboard.movies')}</div>
                 <div style={{ fontSize: '2.2rem', fontFamily: 'var(--font-headings)', fontWeight: 800, color: 'var(--accent-cyan)' }}>
                   {stats?.moviesCount ?? 0}
                 </div>
               </div>
               <div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.5px' }}>EPISODES</div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.5px' }}>{t('dashboard.episodes')}</div>
                 <div style={{ fontSize: '2.2rem', fontFamily: 'var(--font-headings)', fontWeight: 800, color: 'var(--accent-amethyst)' }}>
                   {stats?.episodesCount ?? 0}
                 </div>
               </div>
               <div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.5px' }}>ACTIVE AUDITS</div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.5px' }}>{t('dashboard.activeAudits')}</div>
                 <div style={{ fontSize: '1.5rem', fontFamily: 'var(--font-headings)', fontWeight: 700 }}>
                   {stats?.totalAudits ?? 0}
                 </div>
               </div>
               <div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.5px' }}>GHOST/REMOVED</div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.5px' }}>{t('dashboard.ghostRemoved')}</div>
                 <div style={{ fontSize: '1.5rem', fontFamily: 'var(--font-headings)', fontWeight: 700, color: 'var(--status-removed-text)' }}>
                   {stats?.totalRemoved ?? 0}
                 </div>
@@ -303,14 +305,14 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ apiBase, o
           </div>
           <div style={{ marginTop: '20px', borderTop: '1px solid rgba(255, 255, 255, 0.04)', paddingTop: '15px' }}>
             <button className="btn btn-secondary" style={{ width: '100%', padding: '8px' }} onClick={() => onNavigateToAudit(undefined, true)}>
-              ⚠️ Inspect Failing Files
+              {t('dashboard.inspectFailing')}
             </button>
           </div>
         </div>
 
         {/* Video Quality Distributions */}
         <div className="glass-panel" style={{ padding: '30px', minHeight: '280px' }}>
-          <h2 style={{ fontSize: '1.2rem', marginBottom: '20px', fontWeight: 600 }}>Quality Distribution</h2>
+          <h2 style={{ fontSize: '1.2rem', marginBottom: '20px', fontWeight: 600 }}>{t('dashboard.qualityDist')}</h2>
           <div className="micro-chart-container">
             {stats && Object.entries(stats.qualityDistribution).map(([label, val]) => {
               const totalItems = stats.moviesCount + stats.episodesCount;
@@ -332,20 +334,20 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ apiBase, o
       </div>
 
       {/* --- ROW 2: ACTIVE LIBRARIES GRIDS --- */}
-      <h2 style={{ fontSize: '1.5rem', marginBottom: '20px', fontWeight: 700 }}>Media Libraries</h2>
+      <h2 style={{ fontSize: '1.5rem', marginBottom: '20px', fontWeight: 700 }}>{t('dashboard.mediaLibraries')}</h2>
       {libraries.length === 0 ? (
         <div className="glass-panel" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>
-          <p style={{ marginBottom: '16px' }}>No media library directories registered yet.</p>
-          <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>Configure First Path</button>
+          <p style={{ marginBottom: '16px' }}>{t('dashboard.noLibraries')}</p>
+          <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>{t('dashboard.configureFirstPath')}</button>
         </div>
       ) : (
         <div className="libraries-grid">
           {libraries.map((lib) => (
             <div 
-              className={`glass-panel library-card ${saveGlow[lib.id] ? 'save-glow-active' : ''}`} 
+              className={`glass-panel library-card ${saveGlow.get(lib.id) ? 'save-glow-active' : ''}`} 
               style={{
-                boxShadow: saveGlow[lib.id] ? '0 0 20px rgba(16, 185, 129, 0.4)' : undefined,
-                borderColor: saveGlow[lib.id] ? 'rgba(16, 185, 129, 0.5)' : undefined,
+                boxShadow: saveGlow.get(lib.id) ? '0 0 20px rgba(16, 185, 129, 0.4)' : undefined,
+                borderColor: saveGlow.get(lib.id) ? 'rgba(16, 185, 129, 0.5)' : undefined,
                 transition: 'all 0.3s ease'
               }}
               key={lib.id}
@@ -356,7 +358,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ apiBase, o
                   style={{ background: 'none', border: 'none', color: 'var(--status-failed-text)', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600 }}
                   onClick={() => handleDeleteLibrary(lib.id)}
                 >
-                  Remove
+                  {t('dashboard.remove')}
                 </button>
               </div>
               <h3 className="library-card-title">{lib.name}</h3>
@@ -374,10 +376,10 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ apiBase, o
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-                    AUTO REFRESH
-                    {saveGlow[lib.id] && (
+                    {t('dashboard.autoRefresh')}
+                    {saveGlow.get(lib.id) && (
                       <span style={{ color: 'var(--status-passed-text)', fontSize: '0.7rem', fontWeight: 700, animation: 'fadeIn 0.2s ease-out' }}>
-                        ✓ SAVED
+                        {t('dashboard.saved')}
                       </span>
                     )}
                   </span>
@@ -415,7 +417,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ apiBase, o
                 
                 {lib.isAutoRefreshEnabled && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', animation: 'fadeIn 0.2s ease-out' }}>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>INTERVAL (SEC)</span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>{t('dashboard.intervalSec')}</span>
                     <input 
                       type="number" 
                       className="form-input" 
@@ -443,11 +445,11 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ apiBase, o
                   {lib.status === 'scanning' ? (
                     <div className="scanning-indicator">
                       <span className="scanning-dot" />
-                      Scanning...
+                      {t('dashboard.scanning')}
                     </div>
                   ) : (
                     <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                      Last Sync: {lib.lastScannedAt ? new Date(lib.lastScannedAt).toLocaleTimeString() : 'Never'}
+                      {t('dashboard.lastSync', { time: lib.lastScannedAt ? new Date(lib.lastScannedAt).toLocaleTimeString() : t('dashboard.never') })}
                     </span>
                   )}
                 </div>
@@ -468,10 +470,10 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ apiBase, o
                       fontFamily: 'var(--font-headings)',
                       fontWeight: 600
                     }}
-                    disabled={lib.status === 'scanning' || auditLoading[lib.id]}
+                    disabled={lib.status === 'scanning' || auditLoading.get(lib.id)}
                     onClick={() => handleRunAuditsOnly(lib.id)}
                   >
-                    {auditLoading[lib.id] ? 'Auditing...' : '⚖️ Run Audits Only'}
+                    {auditLoading.get(lib.id) ? t('dashboard.auditing') : t('dashboard.runAuditsOnly')}
                   </button>
 
                   <button 
@@ -480,7 +482,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ apiBase, o
                     disabled={lib.status === 'scanning'}
                     onClick={() => handleScan(lib.id)}
                   >
-                    {lib.status === 'scanning' ? 'Scanning...' : '🔄 Scan Now'}
+                    {lib.status === 'scanning' ? t('dashboard.scanning') : t('dashboard.scanNow')}
                   </button>
                 </div>
               </div>
@@ -494,7 +496,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ apiBase, o
         <div className="drawer-backdrop" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
           <div className="glass-panel" style={{ width: '450px', padding: '30px', animation: 'scaleUp 0.3s ease-out', position: 'relative' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h3 style={{ fontSize: '1.4rem' }}>Configure Media Path</h3>
+              <h3 style={{ fontSize: '1.4rem' }}>{t('dashboard.configureMediaPath')}</h3>
               <button className="drawer-close-btn" onClick={() => setIsModalOpen(false)}>✕</button>
             </div>
             
@@ -507,12 +509,12 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ apiBase, o
             <form onSubmit={handleCreateLibrary} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div>
                 <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px', fontWeight: 600 }}>
-                  LIBRARY NAME
+                  {t('dashboard.libraryName')}
                 </label>
                 <input 
                   type="text" 
                   className="form-input" 
-                  placeholder="e.g. My Movie Shelf"
+                  placeholder={t('dashboard.placeholderName', { defaultValue: 'e.g. My Movie Shelf' })}
                   value={newLibName}
                   onChange={(e) => setNewLibName(e.target.value)}
                 />
@@ -520,12 +522,12 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ apiBase, o
 
               <div>
                 <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px', fontWeight: 600 }}>
-                  ABSOLUTE PATH
+                  {t('dashboard.absolutePath')}
                 </label>
                 <input 
                   type="text" 
                   className="form-input" 
-                  placeholder="e.g. /media/movies"
+                  placeholder={t('dashboard.placeholderPath', { defaultValue: 'e.g. /media/movies' })}
                   value={newLibPath}
                   onChange={(e) => setNewLibPath(e.target.value)}
                 />
@@ -533,24 +535,24 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ apiBase, o
 
               <div>
                 <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px', fontWeight: 600 }}>
-                  MEDIA CONTENT TYPE
+                  {t('dashboard.mediaContentType')}
                 </label>
                 <select 
                   className="form-select"
                   value={newLibType}
                   onChange={(e) => setNewLibType(e.target.value as 'movie' | 'tv')}
                 >
-                  <option value="movie">Movies (Individual Files)</option>
-                  <option value="tv">TV Shows (Series/Seasons/Episodes)</option>
+                  <option value="movie">{t('dashboard.moviesIndividual')}</option>
+                  <option value="tv">{t('dashboard.tvShowsSeries')}</option>
                 </select>
               </div>
 
               <div style={{ display: 'flex', gap: '12px', marginTop: '10px' }}>
                 <button type="button" className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setIsModalOpen(false)}>
-                  Cancel
+                  {t('dashboard.cancel')}
                 </button>
                 <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>
-                  Confirm Path
+                  {t('dashboard.confirmPath')}
                 </button>
               </div>
             </form>
