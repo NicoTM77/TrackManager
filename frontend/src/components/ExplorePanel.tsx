@@ -131,7 +131,7 @@ export const ExplorePanel: React.FC<ExplorePanelProps> = ({ apiBase }) => {
   });
 
   const togglePref = (key: keyof Prefs) => {
-    if (key === '__proto__' || key === 'constructor' || key === 'prototype') return;
+    if ((key as string) === '__proto__' || (key as string) === 'constructor' || (key as string) === 'prototype') return;
     const nextPrefs = { ...prefs, [key]: !prefs[key] };
     setPrefs(nextPrefs);
     localStorage.setItem('trackmanager_explore_prefs', JSON.stringify(nextPrefs));
