@@ -130,13 +130,15 @@ app.post('/api/libraries', async (req, res) => {
     return res.status(400).json({ error: 'Library type must be either "movie" or "tv".' });
   }
 
+  const normalizedLibPath = path.normalize(path.resolve(libPath));
+
   // Ensure path exists, if not, try to create it
-  if (!fs.existsSync(libPath)) {
+  if (!fs.existsSync(normalizedLibPath)) {
     try {
-      fs.mkdirSync(libPath, { recursive: true });
-      logger.info(`Auto-created media library directory: ${libPath}`);
+      fs.mkdirSync(normalizedLibPath, { recursive: true });
+      logger.info(`Auto-created media library directory: ${normalizedLibPath}`);
     } catch (err: any) {
-      logger.warn(`Could not create directory at ${libPath}:`, err);
+      logger.warn(`Could not create directory at ${normalizedLibPath}:`, err);
       // We still allow registering the path, as it might be a network share mounted later
     }
   }
@@ -146,7 +148,7 @@ app.post('/api/libraries', async (req, res) => {
       .insert(libraries)
       .values({
         name,
-        path: libPath,
+        path: normalizedLibPath,
         type,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -211,23 +213,25 @@ app.put('/api/libraries/:id', async (req, res) => {
       return res.status(404).json({ error: 'Library not found.' });
     }
 
+    const normalizedLibPath = libPath ? path.normalize(path.resolve(libPath)) : undefined;
+
     // Prepare update parameters
     const updateParams: any = {
       updatedAt: new Date(),
     };
     if (name !== undefined) updateParams.name = name;
-    if (libPath !== undefined) updateParams.path = libPath;
+    if (normalizedLibPath !== undefined) updateParams.path = normalizedLibPath;
     if (type !== undefined) updateParams.type = type;
     if (refreshInterval !== undefined) updateParams.refreshInterval = refreshInterval;
     if (isAutoRefreshEnabled !== undefined) updateParams.isAutoRefreshEnabled = isAutoRefreshEnabled;
 
     // Validate path existence if updated
-    if (libPath && libPath !== existingLib.path && !fs.existsSync(libPath)) {
+    if (normalizedLibPath && normalizedLibPath !== existingLib.path && !fs.existsSync(normalizedLibPath)) {
       try {
-        fs.mkdirSync(libPath, { recursive: true });
-        logger.info(`Auto-created media library directory during update: ${libPath}`);
+        fs.mkdirSync(normalizedLibPath, { recursive: true });
+        logger.info(`Auto-created media library directory during update: ${normalizedLibPath}`);
       } catch (err: any) {
-        logger.warn(`Could not create directory at ${libPath}:`, err);
+        logger.warn(`Could not create directory at ${normalizedLibPath}:`, err);
       }
     }
 
@@ -835,9 +839,14 @@ app.get('/api/stats/overview', async (req, res) => {
       .where(eq(mediaItems.status, 'active'))
       .groupBy(mediaItems.container);
 
-    const containerDist: Record<string, number> = {};
+    const containerDist: Record<string, number> = Object.create(null);
     for (const row of containerRaw) {
-      containerDist[row.container.toUpperCase()] = row.count;
+      if (row.container) {
+        const key = row.container.toUpperCase();
+        if (key !== '__PROTO__' && key !== 'CONSTRUCTOR' && key !== 'PROTOTYPE') {
+          containerDist[key] = row.count;
+        }
+      }
     }
 
     // e. Fetch Codec distribution
@@ -882,7 +891,7 @@ app.get('/api/stats/overview', async (req, res) => {
 
 // Serve frontend static assets in production
 if (process.env.NODE_ENV === 'production') {
-  const publicPath = path.resolve(__dirname, '../../frontend/dist');
+  const publicPath = path.normalize(path.resolve(__dirname, '../../frontend/dist'));
   if (fs.existsSync(publicPath)) {
     logger.info(`Serving frontend static production bundle from: ${publicPath}`);
     app.use(express.static(publicPath));

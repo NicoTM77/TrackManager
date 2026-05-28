@@ -9,12 +9,15 @@ import fs from 'fs';
 // Database path defaults to local.db in backend root (for development)
 // In Docker, DATABASE_URL should be set to /app/data/local.db
 // In Vitest tests (NODE_ENV=test), we force an in-memory SQLite database to ensure clean, isolated runs
-const dbPath = process.env.NODE_ENV === 'test' ? ':memory:' : (process.env.DATABASE_URL || 'local.db');
+let dbPath = process.env.NODE_ENV === 'test' ? ':memory:' : (process.env.DATABASE_URL || 'local.db');
+if (dbPath !== ':memory:') {
+  dbPath = path.normalize(path.resolve(dbPath));
+}
 
 // Ensure the parent directory of the database exists
-const dbDir = path.dirname(dbPath);
-if (dbDir && dbDir !== '.' && !fs.existsSync(dbDir)) {
-  fs.mkdirSync(dbDir, { recursive: true });
+const dbDir = dbPath !== ':memory:' ? path.dirname(dbPath) : '';
+if (dbDir && dbDir !== '.' && !fs.existsSync(path.normalize(dbDir))) {
+  fs.mkdirSync(path.normalize(dbDir), { recursive: true });
   logger.info(`Created database directory: ${dbDir}`);
 }
 
@@ -53,7 +56,7 @@ export async function initializeDatabase() {
     // Migrations are stored in backend/drizzle folder
     // __dirname in src/db is backend/src/db -> '../../drizzle' goes to backend/drizzle
     // In compiled dist/db, going '../../drizzle' will check backend/dist/../drizzle -> backend/drizzle
-    const migrationsPath = path.resolve(__dirname, '../../drizzle');
+    const migrationsPath = path.normalize(path.resolve(__dirname, '../../drizzle'));
     logger.debug(`Locating migration artifacts in: ${migrationsPath}`);
     
     if (!fs.existsSync(migrationsPath)) {

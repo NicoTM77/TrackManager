@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface RemovedItem {
   id: number;
@@ -17,6 +18,7 @@ interface HistoryPanelProps {
 }
 
 export const HistoryPanel: React.FC<HistoryPanelProps> = ({ apiBase }) => {
+  const { t } = useTranslation();
   const [removedItems, setRemovedItems] = useState<RemovedItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -49,24 +51,24 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({ apiBase }) => {
   if (loading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh', fontFamily: 'var(--font-headings)', fontWeight: 600 }}>
-        Loading historical audit timeline...
+        {t('history.loading')}
       </div>
     );
   }
 
   return (
     <div style={{ animation: 'fadeIn 0.4s ease-out' }}>
-      <h1 className="page-title">Audit History & Removed Files</h1>
-      <p className="page-subtitle">Inspect historical deleted assets. Deleted files are retained as ghost-records to preserve audit logs without cluttering grids.</p>
+      <h1 className="page-title">{t('history.title')}</h1>
+      <p className="page-subtitle">{t('history.subtitle')}</p>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '30px', marginTop: '30px' }}>
         
         {/* Left Side: Ghost Files List */}
         <div>
-          <h2 style={{ fontSize: '1.3rem', marginBottom: '20px', fontWeight: 700 }}>Removed Files (Ghost Records)</h2>
+          <h2 style={{ fontSize: '1.3rem', marginBottom: '20px', fontWeight: 700 }}>{t('history.removedFiles')}</h2>
           {removedItems.length === 0 ? (
             <div className="glass-panel" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>
-              No historical removed files found in database. All indexed files are active on disk.
+              {t('history.noRemovedFiles')}
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -93,10 +95,10 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({ apiBase }) => {
 
         {/* Right Side: Timeline of events */}
         <div>
-          <h2 style={{ fontSize: '1.3rem', marginBottom: '20px', fontWeight: 700 }}>Audit Events Timeline</h2>
+          <h2 style={{ fontSize: '1.3rem', marginBottom: '20px', fontWeight: 700 }}>{t('history.eventsTimeline')}</h2>
           {removedItems.length === 0 ? (
             <div className="glass-panel" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>
-              Timeline is empty. No modifications or deletions tracked.
+              {t('history.emptyTimeline')}
             </div>
           ) : (
             <div className="history-timeline">
@@ -104,12 +106,12 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({ apiBase }) => {
                 <div className="timeline-event" key={item.id}>
                   <span className="timeline-dot" />
                   <div className="glass-panel timeline-event-card">
-                    <strong style={{ display: 'block', fontSize: '0.95rem' }}>Asset Flagged As REMOVED</strong>
+                    <strong style={{ display: 'block', fontSize: '0.95rem' }}>{t('history.assetFlaggedRemoved')}</strong>
                     <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                      File "{item.fileName}" was missing from local storage directory and marked as inactive.
+                      {t('history.fileFlaggedRemovedDesc', { fileName: item.fileName })}
                     </span>
                     <div className="timeline-time">
-                      📅 {item.removedAt ? new Date(item.removedAt).toLocaleString() : 'Date Untracked'}
+                      📅 {item.removedAt ? new Date(item.removedAt).toLocaleString() : t('history.dateUntracked')}
                     </div>
                   </div>
                 </div>

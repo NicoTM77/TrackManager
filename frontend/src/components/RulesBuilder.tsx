@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface Rule {
   id: number;
@@ -36,6 +37,7 @@ const parseChannelsValue = (channels: any): string | number => {
 };
 
 export const RulesBuilder: React.FC<RulesBuilderProps> = ({ apiBase }) => {
+  const { t } = useTranslation();
   const [rules, setRules] = useState<Rule[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -609,7 +611,7 @@ export const RulesBuilder: React.FC<RulesBuilderProps> = ({ apiBase }) => {
   if (loading && rules.length === 0) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh', fontFamily: 'var(--font-headings)', fontWeight: 600 }}>
-        Loading visual AST builder...
+        {t('rules.loading')}
       </div>
     );
   }
@@ -618,15 +620,15 @@ export const RulesBuilder: React.FC<RulesBuilderProps> = ({ apiBase }) => {
     <div style={{ animation: 'fadeIn 0.4s ease-out' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '20px', marginBottom: '30px' }}>
         <div>
-          <h1 className="page-title">Compliance Rules Engine</h1>
-          <p className="page-subtitle">Configure hierarchical metadata requirements, inspect visual AST connections, and test rules.</p>
+          <h1 className="page-title">{t('rules.title')}</h1>
+          <p className="page-subtitle">{t('rules.subtitle')}</p>
         </div>
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
           <button className="btn btn-secondary" onClick={handleExportRuleset}>
-            📤 Export Entire Ruleset
+            {t('rules.exportRuleset')}
           </button>
           <label className="btn btn-secondary" style={{ cursor: 'pointer', margin: 0 }}>
-            📥 Import Entire Ruleset
+            {t('rules.importRuleset')}
             <input 
               type="file" 
               accept=".json" 
@@ -635,7 +637,7 @@ export const RulesBuilder: React.FC<RulesBuilderProps> = ({ apiBase }) => {
             />
           </label>
           <label className="btn btn-secondary" style={{ cursor: 'pointer', margin: 0 }}>
-            📄 Import Individual Rule (.json)
+            {t('rules.importIndividual')}
             <input 
               type="file" 
               accept=".json" 
@@ -644,16 +646,16 @@ export const RulesBuilder: React.FC<RulesBuilderProps> = ({ apiBase }) => {
             />
           </label>
           <button className="btn btn-primary" onClick={handleStartCreate}>
-            ➕ Add Compliance Rule
+            {t('rules.addRule')}
           </button>
         </div>
       </div>
 
       {/* --- ROW 1: ACTIVE RULES AST CARDS --- */}
-      <h2 style={{ fontSize: '1.4rem', marginBottom: '20px', fontWeight: 700 }}>Active Rules</h2>
+      <h2 style={{ fontSize: '1.4rem', marginBottom: '20px', fontWeight: 700 }}>{t('rules.activeRules')}</h2>
       {rules.length === 0 ? (
         <div className="glass-panel" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)', marginBottom: '40px' }}>
-          No custom compliance rules configured yet. Setup a rule below.
+          {t('rules.noRules')}
         </div>
       ) : (
         <div className="rules-grid">
@@ -699,13 +701,13 @@ export const RulesBuilder: React.FC<RulesBuilderProps> = ({ apiBase }) => {
                       style={{ background: 'none', border: 'none', color: 'var(--accent-cyan)', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600 }}
                       onClick={() => handleStartEdit(rule)}
                     >
-                      Edit
+                      {t('rules.edit')}
                     </button>
                     <button 
                       style={{ background: 'none', border: 'none', color: 'var(--status-failed-text)', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600 }}
                       onClick={() => handleDeleteRule(rule.id)}
                     >
-                      Delete
+                      {t('rules.delete')}
                     </button>
                   </div>
                 </div>
@@ -732,7 +734,7 @@ export const RulesBuilder: React.FC<RulesBuilderProps> = ({ apiBase }) => {
                       <div className="ast-nodes-container" style={{ marginBottom: '10px' }}>
                         {conds.length === 0 ? (
                           <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontStyle: 'italic', padding: '4px 0' }}>
-                            (No conditions configured)
+                            {t('rules.noConditions')}
                           </div>
                         ) : (
                           conds.map((cond: any, idx: number) => {
@@ -758,14 +760,14 @@ export const RulesBuilder: React.FC<RulesBuilderProps> = ({ apiBase }) => {
                   style={{ padding: '6px 12px', fontSize: '0.8rem', borderRadius: '6px', flex: 1 }}
                   onClick={() => handleCopyToSandbox(rule)}
                 >
-                  🧪 Sandbox
+                  {t('rules.sandbox')}
                 </button>
                 <button 
                   className="btn btn-secondary" 
                   style={{ padding: '6px 12px', fontSize: '0.8rem', borderRadius: '6px', flex: 1 }}
                   onClick={() => handleExportIndividualRule(rule)}
                 >
-                  📤 Export Rule
+                  {t('rules.exportRule')}
                 </button>
               </div>
             </div>
@@ -778,17 +780,17 @@ export const RulesBuilder: React.FC<RulesBuilderProps> = ({ apiBase }) => {
         
         {/* Simulator AST Code Input */}
         <div className="glass-panel" style={{ padding: '30px' }}>
-          <h2 style={{ fontSize: '1.3rem', marginBottom: '10px', fontWeight: 600 }}>Compliance Simulator</h2>
+          <h2 style={{ fontSize: '1.3rem', marginBottom: '10px', fontWeight: 600 }}>{t('rules.complianceSimulator')}</h2>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>
-            Test your condition expressions inside a temporary sandbox before saving rules to the database.
+            {t('rules.simulatorDesc')}
           </p>
 
           <div style={{ marginBottom: '20px' }}>
             <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px', fontWeight: 600 }}>
-              SELECT MEDIA FILE FOR SIMULATION
+              {t('rules.selectFile')}
             </label>
             {testFiles.length === 0 ? (
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>No media files indexed to test. Trigger scan first.</p>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{t('rules.noFiles')}</p>
             ) : (
               <select 
                 className="form-select"
@@ -804,7 +806,7 @@ export const RulesBuilder: React.FC<RulesBuilderProps> = ({ apiBase }) => {
 
           <div style={{ marginBottom: '20px' }}>
             <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px', fontWeight: 600 }}>
-              AST JSON CONDITION
+              {t('rules.astJsonCondition')}
             </label>
             <textarea
               className="form-input"
@@ -817,14 +819,14 @@ export const RulesBuilder: React.FC<RulesBuilderProps> = ({ apiBase }) => {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <button className="btn btn-primary" style={{ width: '100%' }} onClick={handleSimulate} disabled={simLoading || !selectedFileId}>
-              {simLoading ? 'Auditing file...' : '⚡ Simulate Audit'}
+              {simLoading ? t('rules.auditingFile') : t('rules.simulateAudit')}
             </button>
             <button 
               className="btn btn-secondary" 
               style={{ width: '100%', borderColor: 'rgba(16, 185, 129, 0.25)', color: 'var(--status-passed-text)' }}
               onClick={handleSaveSimulatorRule}
             >
-              📥 Save Simulator Rule to Database
+              {t('rules.saveSimulatorRule')}
             </button>
           </div>
         </div>
@@ -832,43 +834,43 @@ export const RulesBuilder: React.FC<RulesBuilderProps> = ({ apiBase }) => {
         {/* Simulator Feedback Outputs */}
         <div className="glass-panel" style={{ padding: '30px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
           <div>
-            <h2 style={{ fontSize: '1.3rem', marginBottom: '10px', fontWeight: 600 }}>Simulation Feedback</h2>
+            <h2 style={{ fontSize: '1.3rem', marginBottom: '10px', fontWeight: 600 }}>{t('rules.simulationFeedback')}</h2>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '30px' }}>
-              Results are calculated instantly in memory against the file's indexed tracks.
+              {t('rules.feedbackDesc')}
             </p>
 
             {simResult ? (
               <div style={{ animation: 'scaleUp 0.3s ease-out' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
                   <span className={simResult.passed ? 'badge badge-passed' : 'badge badge-failed'} style={{ fontSize: '1rem', padding: '6px 16px' }}>
-                    {simResult.passed ? '✓ PASSED' : '✕ FAILING'}
+                    {simResult.passed ? t('rules.passed') : t('rules.failing')}
                   </span>
                   <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-                    Compliance state confirmed
+                    {t('rules.complianceStateConfirmed')}
                   </span>
                 </div>
 
                 {!simResult.passed && simResult.errorMessage && (
                   <div style={{ padding: '16px', background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.25)', borderRadius: '8px', color: 'var(--status-failed-text)', fontSize: '0.9rem', lineHeight: '1.5' }}>
-                    <strong>Failing Reason:</strong>
+                    <strong>{t('rules.failingReason')}</strong>
                     <p style={{ marginTop: '6px' }}>⚠️ {simResult.errorMessage}</p>
                   </div>
                 )}
 
                 {simResult.passed && (
                   <div style={{ padding: '16px', background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.25)', borderRadius: '8px', color: 'var(--status-passed-text)', fontSize: '0.9rem' }}>
-                    🎉 The media file fits all rules defined in your simulation AST!
+                    {t('rules.passedSimulator')}
                   </div>
                 )}
               </div>
             ) : (
               <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '50px 0', fontSize: '0.9rem' }}>
-                Trigger simulator to compile logic checks.
+                {t('rules.triggerSimulator')}
               </div>
             )}
           </div>
           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: '15px' }}>
-            Tip: Copy conditions from your active cards to test edits!
+            {t('rules.tip')}
           </div>
         </div>
       </div>
@@ -878,7 +880,7 @@ export const RulesBuilder: React.FC<RulesBuilderProps> = ({ apiBase }) => {
         <div className="drawer-backdrop" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
           <div className="glass-panel" style={{ width: '700px', padding: '30px', animation: 'scaleUp 0.3s ease-out', maxHeight: '90vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h3 style={{ fontSize: '1.4rem' }}>{editingRuleId ? 'Edit Compliance Rule' : 'Configure Compliance Rule'}</h3>
+              <h3 style={{ fontSize: '1.4rem' }}>{editingRuleId ? t('rules.editComplianceRule') : t('rules.configureComplianceRule')}</h3>
               <button className="drawer-close-btn" onClick={handleCloseModal}>✕</button>
             </div>
             
@@ -911,7 +913,7 @@ export const RulesBuilder: React.FC<RulesBuilderProps> = ({ apiBase }) => {
                   setEditorMode('visual');
                 }}
               >
-                🎨 Visual Builder
+                {t('rules.visualBuilder')}
               </button>
               <button 
                 type="button"
@@ -937,7 +939,7 @@ export const RulesBuilder: React.FC<RulesBuilderProps> = ({ apiBase }) => {
                   setEditorMode('code');
                 }}
               >
-                💻 JSON Code Editor
+                {t('rules.jsonCodeEditor')}
               </button>
             </div>
 
@@ -945,7 +947,7 @@ export const RulesBuilder: React.FC<RulesBuilderProps> = ({ apiBase }) => {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                 <div>
                   <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px', fontWeight: 600 }}>
-                    RULE NAME
+                    {t('rules.ruleName')}
                   </label>
                   <input 
                     type="text" 
@@ -958,14 +960,14 @@ export const RulesBuilder: React.FC<RulesBuilderProps> = ({ apiBase }) => {
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                     <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600, margin: 0 }}>
-                      TARGET TYPE
+                      {t('rules.targetType')}
                     </label>
                     <a 
                       href="#" 
                       onClick={handleSelectAll} 
                       style={{ fontSize: '0.75rem', color: 'var(--accent-cyan)', textDecoration: 'none', fontWeight: 600 }}
                     >
-                      Select All
+                      {t('rules.selectAll')}
                     </a>
                   </div>
                   <div style={{ display: 'flex', gap: '15px', alignItems: 'center', height: '38px', background: 'rgba(0,0,0,0.2)', border: 'var(--panel-border)', borderRadius: '8px', padding: '0 12px' }}>
@@ -976,7 +978,7 @@ export const RulesBuilder: React.FC<RulesBuilderProps> = ({ apiBase }) => {
                         onChange={(e) => handleCheckboxChange('movie', e.target.checked)}
                         style={{ accentColor: 'var(--accent-cyan)' }}
                       />
-                      Movies
+                      {t('rules.movies')}
                     </label>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', cursor: 'pointer', margin: 0 }}>
                       <input 
@@ -985,7 +987,7 @@ export const RulesBuilder: React.FC<RulesBuilderProps> = ({ apiBase }) => {
                         onChange={(e) => handleCheckboxChange('tv', e.target.checked)}
                         style={{ accentColor: 'var(--accent-cyan)' }}
                       />
-                      TV Shows
+                      {t('rules.tvShows')}
                     </label>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', cursor: 'pointer', margin: 0 }}>
                       <input 
@@ -994,7 +996,7 @@ export const RulesBuilder: React.FC<RulesBuilderProps> = ({ apiBase }) => {
                         onChange={(e) => handleCheckboxChange('anime', e.target.checked)}
                         style={{ accentColor: 'var(--accent-cyan)' }}
                       />
-                      Anime
+                      {t('rules.anime')}
                     </label>
                   </div>
                 </div>
@@ -1002,7 +1004,7 @@ export const RulesBuilder: React.FC<RulesBuilderProps> = ({ apiBase }) => {
 
               <div>
                 <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px', fontWeight: 600 }}>
-                  DESCRIPTION
+                  {t('rules.description')}
                 </label>
                 <input 
                   type="text" 
@@ -1016,7 +1018,7 @@ export const RulesBuilder: React.FC<RulesBuilderProps> = ({ apiBase }) => {
               {editorMode === 'visual' ? (
                 <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '16px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                    <h4 style={{ fontSize: '1rem' }}>AST Conditions Expressions</h4>
+                    <h4 style={{ fontSize: '1rem' }}>{t('rules.astConditions')}</h4>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                       <select 
                         className="form-select" 
@@ -1024,11 +1026,11 @@ export const RulesBuilder: React.FC<RulesBuilderProps> = ({ apiBase }) => {
                         value={logicalOp}
                         onChange={(e) => setLogicalOp(e.target.value as 'AND' | 'OR')}
                       >
-                        <option value="AND">AND</option>
-                        <option value="OR">OR</option>
+                        <option value="AND">{t('rules.and')}</option>
+                        <option value="OR">{t('rules.or')}</option>
                       </select>
                       <button type="button" className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: '0.8rem' }} onClick={handleAddCondition}>
-                        ➕ Add Clause
+                        {t('rules.addClause')}
                       </button>
                     </div>
                   </div>
@@ -1043,13 +1045,13 @@ export const RulesBuilder: React.FC<RulesBuilderProps> = ({ apiBase }) => {
                             value={cond.field}
                             onChange={(e) => handleConditionChange(idx, 'field', e.target.value)}
                           >
-                            <option value="videoCodec">Video Codec</option>
-                            <option value="videoResolution">Resolution</option>
-                            <option value="videoColorDepth">Color Depth</option>
-                            <option value="videoHdrFormat">HDR Profile</option>
-                            <option value="container">Container</option>
-                            <option value="audio">Audio Tracks</option>
-                            <option value="subtitles">Subtitle Tracks</option>
+                            <option value="videoCodec">{t('rules.videoCodec')}</option>
+                            <option value="videoResolution">{t('rules.resolution')}</option>
+                            <option value="videoColorDepth">{t('rules.colorDepth')}</option>
+                            <option value="videoHdrFormat">{t('rules.hdrProfile')}</option>
+                            <option value="container">{t('rules.container')}</option>
+                            <option value="audio">{t('rules.audioTracks')}</option>
+                            <option value="subtitles">{t('rules.subtitleTracks')}</option>
                           </select>
 
                           {cond.field !== 'audio' && cond.field !== 'subtitles' ? (
@@ -1060,17 +1062,17 @@ export const RulesBuilder: React.FC<RulesBuilderProps> = ({ apiBase }) => {
                                 value={cond.operator}
                                 onChange={(e) => handleConditionChange(idx, 'operator', e.target.value)}
                               >
-                                <option value="EQUALS">EQUALS</option>
-                                <option value="NOT_EQUALS">NOT EQUALS</option>
+                                <option value="EQUALS">{t('rules.equals')}</option>
+                                <option value="NOT_EQUALS">{t('rules.notEquals')}</option>
                                 {cond.field === 'videoColorDepth' ? (
                                   <>
-                                    <option value="GTE">GTE (&gt;=)</option>
-                                    <option value="LTE">LTE (&lt;=)</option>
+                                    <option value="GTE">{t('rules.gte')}</option>
+                                    <option value="LTE">{t('rules.lte')}</option>
                                   </>
                                 ) : (
                                   <>
-                                    <option value="CONTAINS">CONTAINS</option>
-                                    <option value="NOT_CONTAINS">NOT CONTAINS</option>
+                                    <option value="CONTAINS">{t('rules.contains')}</option>
+                                    <option value="NOT_CONTAINS">{t('rules.notContains')}</option>
                                   </>
                                 )}
                               </select>
@@ -1091,7 +1093,7 @@ export const RulesBuilder: React.FC<RulesBuilderProps> = ({ apiBase }) => {
                             </>
                           ) : (
                             <div style={{ flex: 3.2, fontSize: '0.85rem', color: 'var(--accent-cyan)', fontWeight: 600 }}>
-                              {cond.field === 'audio' ? '🔊 Custom Audio Filters' : '📝 Custom Subtitle Filters'}
+                              {cond.field === 'audio' ? t('rules.customAudioFilters') : t('rules.customSubtitleFilters')}
                             </div>
                           )}
 
@@ -1104,7 +1106,7 @@ export const RulesBuilder: React.FC<RulesBuilderProps> = ({ apiBase }) => {
                         {cond.field === 'audio' && (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', padding: '10px', background: 'rgba(255,255,255,0.02)', border: 'var(--panel-border)', boxSizing: 'border-box' }}>
                             <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>LANG:</span>
+                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>{t('rules.lang')}</span>
                               <input 
                                 type="text" 
                                 className="form-input" 
@@ -1113,7 +1115,7 @@ export const RulesBuilder: React.FC<RulesBuilderProps> = ({ apiBase }) => {
                                 value={cond.params?.language || ''}
                                 onChange={(e) => handleParamChange(idx, 'language', e.target.value)}
                               />
-                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>MIN CHANNELS:</span>
+                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>{t('rules.minChannels')}</span>
                               <input 
                                 type="number" 
                                 className="form-input" 
@@ -1124,7 +1126,7 @@ export const RulesBuilder: React.FC<RulesBuilderProps> = ({ apiBase }) => {
                               />
                             </div>
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center', marginTop: '4px' }}>
-                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>CODECS SELECTOR:</span>
+                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>{t('rules.codecsSelector')}</span>
                               {['TrueHD', 'DTS-HD', 'DTS', 'AAC', 'AC-3', 'OPUS'].map(codec => {
                                 const formatsArray = Array.isArray(cond.params?.format) 
                                   ? cond.params.format 
@@ -1157,7 +1159,7 @@ export const RulesBuilder: React.FC<RulesBuilderProps> = ({ apiBase }) => {
                         {cond.field === 'subtitles' && (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', padding: '10px', background: 'rgba(255,255,255,0.02)', border: 'var(--panel-border)', boxSizing: 'border-box' }}>
                             <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>LANG:</span>
+                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>{t('rules.lang')}</span>
                               <input 
                                 type="text" 
                                 className="form-input" 
@@ -1173,7 +1175,7 @@ export const RulesBuilder: React.FC<RulesBuilderProps> = ({ apiBase }) => {
                                   style={{ width: '13px', height: '13px', accentColor: 'var(--accent-cyan)', cursor: 'pointer' }}
                                   onChange={(e) => handleParamChange(idx, 'isForced', e.target.checked)}
                                 />
-                                Forced Only
+                                {t('rules.forcedOnly')}
                               </label>
                               <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', cursor: 'pointer' }}>
                                 <input 
@@ -1182,11 +1184,11 @@ export const RulesBuilder: React.FC<RulesBuilderProps> = ({ apiBase }) => {
                                   style={{ width: '13px', height: '13px', accentColor: 'var(--accent-cyan)', cursor: 'pointer' }}
                                   onChange={(e) => handleParamChange(idx, 'isHearingImpaired', e.target.checked)}
                                 />
-                                SDH (Hearing Impaired)
+                                {t('rules.sdhHearingImpaired')}
                               </label>
                             </div>
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center', marginTop: '4px' }}>
-                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>FORMATS SELECTOR:</span>
+                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>{t('rules.formatsSelector')}</span>
                               {['SRT', 'PGS', 'ASS', 'VobSub'].map(subFormat => {
                                 const subFormatsArray = Array.isArray(cond.params?.format) 
                                   ? cond.params.format 
@@ -1222,7 +1224,7 @@ export const RulesBuilder: React.FC<RulesBuilderProps> = ({ apiBase }) => {
                 // --- GRANULAR CODE EDITOR WITH SCHEMA VALIDATION ---
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
-                    AST JSON CODE
+                    {t('rules.astJsonCode')}
                   </label>
                   {validationError && (
                     <div style={{
@@ -1234,7 +1236,7 @@ export const RulesBuilder: React.FC<RulesBuilderProps> = ({ apiBase }) => {
                       fontSize: '0.85rem',
                       boxShadow: '0 0 15px rgba(239, 68, 68, 0.1)'
                     }}>
-                      ⚠️ <strong>Schema Violation:</strong> {validationError}
+                      ⚠️ <strong>{t('rules.schemaViolation')}</strong> {validationError}
                     </div>
                   )}
                   <textarea 
@@ -1249,7 +1251,7 @@ export const RulesBuilder: React.FC<RulesBuilderProps> = ({ apiBase }) => {
 
               <div style={{ display: 'flex', gap: '12px', marginTop: '20px' }}>
                 <button type="button" className="btn btn-secondary" style={{ flex: 1 }} onClick={handleCloseModal}>
-                  Cancel
+                  {t('rules.cancel')}
                 </button>
                 <button 
                   type="submit" 
@@ -1257,7 +1259,7 @@ export const RulesBuilder: React.FC<RulesBuilderProps> = ({ apiBase }) => {
                   style={{ flex: 1 }}
                   disabled={editorMode === 'code' && validationError !== null}
                 >
-                  {editingRuleId ? 'Update Rule' : 'Save Compliance Rule'}
+                  {editingRuleId ? t('rules.updateRule') : t('rules.saveRule')}
                 </button>
               </div>
             </form>

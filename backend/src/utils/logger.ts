@@ -6,8 +6,8 @@ import fs from 'fs';
 const isTest = process.env.NODE_ENV === 'test' || process.env.VITEST === 'true';
 
 // Prioritize root .env in development using absolute file resolution (immune to process.cwd drifts)
-const rootEnv = path.resolve(__dirname, '../../../.env');
-const localEnv = path.resolve(__dirname, '../../.env');
+const rootEnv = path.normalize(path.resolve(__dirname, '../../../.env'));
+const localEnv = path.normalize(path.resolve(__dirname, '../../.env'));
 if (fs.existsSync(rootEnv)) {
   dotenv.config({ path: rootEnv, override: true });
 } else if (fs.existsSync(localEnv)) {

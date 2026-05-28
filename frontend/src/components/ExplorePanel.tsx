@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface AudioTrack {
   id: number;
@@ -101,10 +102,11 @@ const DEFAULT_PREFS: Prefs = {
 };
 
 export const ExplorePanel: React.FC<ExplorePanelProps> = ({ apiBase }) => {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [seriesMetadata, setSeriesMetadata] = useState<SeriesMeta[]>([]);
   const [treeData, setTreeData] = useState<TreeNode[]>([]);
-  const [expandedPaths, setExpandedPaths] = useState<Record<string, boolean>>({});
+  const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
   const [showSettings, setShowSettings] = useState(false);
 
   // Drawer & Accordion States for Detail Drawer
@@ -129,6 +131,7 @@ export const ExplorePanel: React.FC<ExplorePanelProps> = ({ apiBase }) => {
   });
 
   const togglePref = (key: keyof Prefs) => {
+    if (key === '__proto__' || key === 'constructor' || key === 'prototype') return;
     const nextPrefs = { ...prefs, [key]: !prefs[key] };
     setPrefs(nextPrefs);
     localStorage.setItem('trackmanager_explore_prefs', JSON.stringify(nextPrefs));
@@ -268,8 +271,10 @@ export const ExplorePanel: React.FC<ExplorePanelProps> = ({ apiBase }) => {
     }));
 
     const rootsMap = new Map<number, TreeNode>();
-    roots.forEach((root, idx) => {
-      rootsMap.set(libs[idx].id, root);
+    roots.forEach((root) => {
+      if (root.libraryId !== undefined) {
+        rootsMap.set(root.libraryId, root);
+      }
     });
 
     items.forEach(item => {
@@ -334,26 +339,33 @@ export const ExplorePanel: React.FC<ExplorePanelProps> = ({ apiBase }) => {
       });
       node.children.forEach(sortTree);
     };
-
     roots.forEach(sortTree);
     setTreeData(roots);
 
     // Expand top-level libraries by default
-    const defaultExpanded: Record<string, boolean> = {};
+    const defaultExpanded = new Set<string>();
     roots.forEach(r => {
-      defaultExpanded[r.path] = true;
+      defaultExpanded.add(r.path);
     });
     setExpandedPaths(defaultExpanded);
   };
 
   const toggleFolder = (path: string) => {
-    setExpandedPaths(prev => ({ ...prev, [path]: !prev[path] }));
+    setExpandedPaths(prev => {
+      const next = new Set(prev);
+      if (next.has(path)) {
+        next.delete(path);
+      } else {
+        next.add(path);
+      }
+      return next;
+    });
   };
 
   const renderTree = (nodes: TreeNode[], depth: number = 0) => {
     return nodes.map(node => {
       const isFolder = node.type === 'folder';
-      const isExpanded = expandedPaths[node.path];
+      const isExpanded = expandedPaths.has(node.path);
 
       if (isFolder) {
         const meta = seriesMetadata.find(m => m.seriesPath === node.absolutePath);
@@ -404,7 +416,7 @@ export const ExplorePanel: React.FC<ExplorePanelProps> = ({ apiBase }) => {
                       userSelect: 'none'
                     }}
                   >
-                    ✨ Anime
+                    {t('explore.anime')}
                   </span>
                 ) : (
                   <span 
@@ -425,7 +437,7 @@ export const ExplorePanel: React.FC<ExplorePanelProps> = ({ apiBase }) => {
                       userSelect: 'none'
                     }}
                   >
-                    📺 Regular TV
+                    {t('explore.regularTv')}
                   </span>
                 )
               )}
@@ -501,14 +513,14 @@ export const ExplorePanel: React.FC<ExplorePanelProps> = ({ apiBase }) => {
             {prefs.compliance && (
               isFailing ? (
                 <span className="badge badge-failed" style={{ padding: '2px 8px', fontSize: '0.75rem' }}>
-                  ✕ Failed
+                  {t('explore.failed')}
                 </span>
               ) : item.auditResults.length > 0 ? (
                 <span className="badge badge-passed" style={{ padding: '2px 8px', fontSize: '0.75rem' }}>
-                  ✓ Passed
+                  {t('explore.passed')}
                 </span>
               ) : (
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>No audits</span>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{t('explore.noAudits')}</span>
               )
             )}
           </div>
@@ -522,8 +534,8 @@ export const ExplorePanel: React.FC<ExplorePanelProps> = ({ apiBase }) => {
       {/* Explore Header Toolbar */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '20px', marginBottom: '30px' }}>
         <div>
-          <h1 className="page-title">Physical Explorer</h1>
-          <p className="page-subtitle">Inspect local library folders, expand nested directory structures, and review inline codec metadata.</p>
+          <h1 className="page-title">{t('explore.title')}</h1>
+          <p className="page-subtitle">{t('explore.subtitle')}</p>
         </div>
 
         {/* Display Preferences Widget Panel */}
@@ -533,7 +545,7 @@ export const ExplorePanel: React.FC<ExplorePanelProps> = ({ apiBase }) => {
             onClick={() => setShowSettings(!showSettings)}
             style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
           >
-            ⚙️ Display Settings
+            {t('explore.displaySettings')}
           </button>
 
           {showSettings && (
@@ -558,7 +570,7 @@ export const ExplorePanel: React.FC<ExplorePanelProps> = ({ apiBase }) => {
                 }}
               >
                 <h4 style={{ fontSize: '0.9rem', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '8px', marginBottom: '4px' }}>
-                  Filter Columns View
+                  {t('explore.filterColumns')}
                 </h4>
                 
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', cursor: 'pointer' }}>
@@ -568,7 +580,7 @@ export const ExplorePanel: React.FC<ExplorePanelProps> = ({ apiBase }) => {
                     onChange={() => togglePref('resolution')}
                     style={{ accentColor: 'var(--accent-cyan)' }}
                   />
-                  Video Resolution
+                  {t('explore.videoResolution')}
                 </label>
 
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', cursor: 'pointer' }}>
@@ -578,7 +590,7 @@ export const ExplorePanel: React.FC<ExplorePanelProps> = ({ apiBase }) => {
                     onChange={() => togglePref('codec')}
                     style={{ accentColor: 'var(--accent-cyan)' }}
                   />
-                  Video Codec
+                  {t('explore.videoCodec')}
                 </label>
 
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', cursor: 'pointer' }}>
@@ -588,7 +600,7 @@ export const ExplorePanel: React.FC<ExplorePanelProps> = ({ apiBase }) => {
                     onChange={() => togglePref('audio')}
                     style={{ accentColor: 'var(--accent-cyan)' }}
                   />
-                  All Audio Tracks
+                  {t('explore.allAudioTracks')}
                 </label>
 
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', cursor: 'pointer' }}>
@@ -598,7 +610,7 @@ export const ExplorePanel: React.FC<ExplorePanelProps> = ({ apiBase }) => {
                     onChange={() => togglePref('subtitles')}
                     style={{ accentColor: 'var(--accent-cyan)' }}
                   />
-                  All Subtitle Tracks
+                  {t('explore.allSubtitleTracks')}
                 </label>
 
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', cursor: 'pointer' }}>
@@ -608,7 +620,7 @@ export const ExplorePanel: React.FC<ExplorePanelProps> = ({ apiBase }) => {
                     onChange={() => togglePref('compliance')}
                     style={{ accentColor: 'var(--accent-cyan)' }}
                   />
-                  Compliance Audits State
+                  {t('explore.complianceAuditsState')}
                 </label>
 
                 <div style={{ display: 'flex', gap: '8px', marginTop: '8px', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '12px' }}>
@@ -617,7 +629,7 @@ export const ExplorePanel: React.FC<ExplorePanelProps> = ({ apiBase }) => {
                     className="btn btn-secondary" 
                     style={{ width: '100%', fontSize: '0.75rem', padding: '6px' }}
                   >
-                    Reset defaults
+                    {t('explore.resetDefaults')}
                   </button>
                 </div>
               </div>
@@ -629,11 +641,11 @@ export const ExplorePanel: React.FC<ExplorePanelProps> = ({ apiBase }) => {
       {/* Directory Canvas */}
       {loading ? (
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '40vh', fontFamily: 'var(--font-headings)', fontWeight: 600 }}>
-          Resolving nested directories tree...
+          {t('explore.resolvingTree')}
         </div>
       ) : treeData.length === 0 ? (
         <div className="glass-panel" style={{ padding: '60px', textAlign: 'center', color: 'var(--text-secondary)' }}>
-          No active libraries configured or indexed files to explore. Connect paths in the overview.
+          {t('explore.noLibrariesExplore')}
         </div>
       ) : (
         <div className="glass-panel" style={{ padding: '24px 30px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -649,12 +661,12 @@ export const ExplorePanel: React.FC<ExplorePanelProps> = ({ apiBase }) => {
             <div className="drawer-header">
               <div>
                 <span className="badge badge-removed" style={{ marginBottom: '10px', textTransform: 'uppercase' }}>
-                  {selectedItem.container} format
+                  {selectedItem.container.toUpperCase()} {t('explore.default', { defaultValue: 'format' })}
                 </span>
                 <h2 className="drawer-title">{selectedItem.title || selectedItem.fileName}</h2>
                 {selectedItem.season !== null && (
                   <span style={{ fontSize: '1rem', color: 'var(--accent-cyan)', fontWeight: 600 }}>
-                    Season {selectedItem.season}, Episode {selectedItem.episode}
+                    {t('explore.season')}{selectedItem.season}, Episode {selectedItem.episode}
                   </span>
                 )}
               </div>
@@ -662,7 +674,7 @@ export const ExplorePanel: React.FC<ExplorePanelProps> = ({ apiBase }) => {
             </div>
 
             <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '15px', wordBreak: 'break-all' }}>
-              Filepath: {selectedItem.filePath}
+              {t('explore.filepath')}{selectedItem.filePath}
             </p>
 
             <div style={{ display: 'flex', gap: '6px', marginBottom: '30px', flexWrap: 'wrap' }}>
@@ -689,7 +701,7 @@ export const ExplorePanel: React.FC<ExplorePanelProps> = ({ apiBase }) => {
                 {activeAccordion === 'compliance' && (
                   <div className="accordion-body" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     {selectedItem.auditResults.length === 0 ? (
-                      <p style={{ color: 'var(--text-muted)' }}>No compliance audits have been run against this file yet. Set up rules and trigger library scans.</p>
+                      <p style={{ color: 'var(--text-muted)' }}>{t('explore.noComplianceAudits')}</p>
                     ) : (
                       selectedItem.auditResults.map(aud => (
                         <div key={aud.ruleId} style={{ display: 'flex', gap: '10px', flexDirection: 'column', padding: '12px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: '6px' }}>
@@ -720,27 +732,27 @@ export const ExplorePanel: React.FC<ExplorePanelProps> = ({ apiBase }) => {
                 {activeAccordion === 'video' && (
                   <div className="accordion-body" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                     <div>
-                      <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>CODEC</div>
+                      <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>{t('explore.codec')}</div>
                       <div style={{ fontWeight: 600, color: '#fff' }}>{selectedItem.videoCodec || 'Unknown'}</div>
                     </div>
                     <div>
-                      <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>RESOLUTION</div>
+                      <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>{t('explore.resolution')}</div>
                       <div style={{ fontWeight: 600, color: '#fff' }}>{selectedItem.videoResolution || 'Unknown'}</div>
                     </div>
                     <div>
-                      <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>COLOR DEPTH</div>
+                      <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>{t('explore.colorDepth')}</div>
                       <div style={{ fontWeight: 600, color: '#fff' }}>{selectedItem.videoColorDepth ? `${selectedItem.videoColorDepth}-bit` : '8-bit'}</div>
                     </div>
                     <div>
-                      <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>HDR PROFILE</div>
+                      <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>{t('explore.hdrProfile')}</div>
                       <div style={{ fontWeight: 600, color: 'var(--accent-cyan)' }}>{selectedItem.videoHdrFormat || 'SDR'}</div>
                     </div>
                     <div>
-                      <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>BITRATE</div>
+                      <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>{t('explore.bitrate')}</div>
                       <div style={{ fontWeight: 600, color: '#fff' }}>{selectedItem.videoBitrate ? `${Math.round(selectedItem.videoBitrate / 1000000)} Mbps` : 'N/A'}</div>
                     </div>
                     <div>
-                      <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>FILESIZE</div>
+                      <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>{t('explore.filesize')}</div>
                       <div style={{ fontWeight: 600, color: '#fff' }}>{formatBytes(selectedItem.fileSize)}</div>
                     </div>
                   </div>
@@ -756,7 +768,7 @@ export const ExplorePanel: React.FC<ExplorePanelProps> = ({ apiBase }) => {
                 {activeAccordion === 'audio' && (
                   <div className="accordion-body" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     {selectedItem.audioTracks.length === 0 ? (
-                      <p style={{ color: 'var(--text-muted)' }}>No audio tracks detected.</p>
+                      <p style={{ color: 'var(--text-muted)' }}>{t('explore.noAudioTracks')}</p>
                     ) : (
                       selectedItem.audioTracks.map(track => (
                         <div key={track.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: 'rgba(0,0,0,0.15)', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.03)' }}>
@@ -770,8 +782,8 @@ export const ExplorePanel: React.FC<ExplorePanelProps> = ({ apiBase }) => {
                             </span>
                           </div>
                           <div style={{ display: 'flex', gap: '6px' }}>
-                            {track.isDefault && <span style={{ fontSize: '0.7rem', background: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: '4px' }}>default</span>}
-                            {track.isForced && <span style={{ fontSize: '0.7rem', background: 'rgba(0,242,254,0.1)', color: 'var(--accent-cyan)', padding: '2px 6px', borderRadius: '4px' }}>forced</span>}
+                            {track.isDefault && <span style={{ fontSize: '0.7rem', background: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: '4px' }}>{t('explore.default')}</span>}
+                            {track.isForced && <span style={{ fontSize: '0.7rem', background: 'rgba(0,242,254,0.1)', color: 'var(--accent-cyan)', padding: '2px 6px', borderRadius: '4px' }}>{t('explore.forced')}</span>}
                           </div>
                         </div>
                       ))
@@ -789,7 +801,7 @@ export const ExplorePanel: React.FC<ExplorePanelProps> = ({ apiBase }) => {
                 {activeAccordion === 'subtitles' && (
                   <div className="accordion-body" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     {selectedItem.subtitleTracks.length === 0 ? (
-                      <p style={{ color: 'var(--text-muted)' }}>No subtitle tracks detected.</p>
+                      <p style={{ color: 'var(--text-muted)' }}>{t('explore.noSubtitleTracks')}</p>
                     ) : (
                       selectedItem.subtitleTracks.map(track => (
                         <div key={track.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: 'rgba(0,0,0,0.15)', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.03)' }}>
@@ -803,9 +815,9 @@ export const ExplorePanel: React.FC<ExplorePanelProps> = ({ apiBase }) => {
                             </span>
                           </div>
                           <div style={{ display: 'flex', gap: '6px' }}>
-                            {track.isHearingImpaired && <span style={{ fontSize: '0.7rem', background: 'rgba(245,158,11,0.1)', color: 'var(--status-removed-text)', padding: '2px 6px', borderRadius: '4px' }}>SDH</span>}
-                            {track.isDefault && <span style={{ fontSize: '0.7rem', background: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: '4px' }}>default</span>}
-                            {track.isForced && <span style={{ fontSize: '0.7rem', background: 'rgba(0,242,254,0.1)', color: 'var(--accent-cyan)', padding: '2px 6px', borderRadius: '4px' }}>forced</span>}
+                            {track.isHearingImpaired && <span style={{ fontSize: '0.7rem', background: 'rgba(245,158,11,0.1)', color: 'var(--status-removed-text)', padding: '2px 6px', borderRadius: '4px' }}>{t('explore.sdh')}</span>}
+                            {track.isDefault && <span style={{ fontSize: '0.7rem', background: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: '4px' }}>{t('explore.default')}</span>}
+                            {track.isForced && <span style={{ fontSize: '0.7rem', background: 'rgba(0,242,254,0.1)', color: 'var(--accent-cyan)', padding: '2px 6px', borderRadius: '4px' }}>{t('explore.forced')}</span>}
                           </div>
                         </div>
                       ))
@@ -823,7 +835,7 @@ export const ExplorePanel: React.FC<ExplorePanelProps> = ({ apiBase }) => {
                 {activeAccordion === 'raw' && (
                   <div className="accordion-body" style={{ padding: '10px 0 0 0', borderTop: 'none' }}>
                     {rawLoading ? (
-                      <p style={{ color: 'var(--text-muted)', padding: '15px' }}>Probing file headers...</p>
+                      <p style={{ color: 'var(--text-muted)', padding: '15px' }}>{t('explore.probingHeaders')}</p>
                     ) : rawMetadata ? (
                       <div className="code-viewer-wrapper">
                         <button className="copy-btn" onClick={handleCopyRaw}>
@@ -832,7 +844,7 @@ export const ExplorePanel: React.FC<ExplorePanelProps> = ({ apiBase }) => {
                         <pre style={{ color: 'var(--accent-cyan)' }}>{JSON.stringify(rawMetadata, null, 2)}</pre>
                       </div>
                     ) : (
-                      <p style={{ color: 'var(--status-failed-text)', padding: '15px' }}>Failed to retrieve raw headers.</p>
+                      <p style={{ color: 'var(--status-failed-text)', padding: '15px' }}>{t('explore.failedHeaders')}</p>
                     )}
                   </div>
                 )}
