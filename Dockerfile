@@ -3,6 +3,7 @@ FROM node:20-alpine AS frontend-builder
 WORKDIR /app
 COPY package*.json ./
 COPY frontend/package*.json ./frontend/
+COPY backend/package*.json ./backend/
 RUN npm ci --workspace=frontend
 COPY frontend/ ./frontend/
 RUN npm run build -w frontend
@@ -14,11 +15,13 @@ RUN apk add --no-cache python3 make g++ gcc libc-dev
 WORKDIR /app
 COPY package*.json ./
 COPY backend/package*.json ./backend/
+COPY frontend/package*.json ./frontend/
 RUN npm ci --workspace=backend
 COPY backend/ ./backend/
 RUN npm run build -w backend
-# Prune devDependencies to keep node_modules light for production
-RUN npm prune --omit=dev --workspace=backend
+# Prune devDependencies to keep node_modules light for production by doing a clean production install
+RUN rm -rf node_modules && npm ci --omit=dev --workspace=backend
+RUN mkdir -p backend/node_modules
 
 # Stage 3: Secure production runner stage
 FROM node:20-alpine AS runner
@@ -28,6 +31,7 @@ WORKDIR /app
 
 # Copy production backend dependencies and compiled JS build
 COPY --from=backend-builder /app/node_modules ./node_modules
+COPY --from=backend-builder /app/backend/node_modules ./backend/node_modules
 COPY --from=backend-builder /app/backend/dist ./backend/dist
 COPY --from=backend-builder /app/backend/package.json ./backend/package.json
 COPY --from=backend-builder /app/backend/drizzle ./backend/drizzle
